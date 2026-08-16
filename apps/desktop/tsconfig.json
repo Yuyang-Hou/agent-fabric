@@ -1,0 +1,28 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "rootDir": "src",
+    "outDir": "dist",
+    "jsx": "react-jsx"
+  },
+  "include": [
+    "src/index.ts",
+    "src/main.ts",
+    "src/preload.ts",
+    "src/renderer-entry.tsx",
+    "src/updater/**/*.ts",
+    "src/updater/**/*.tsx",
+    "src/account-agent-*.ts",
+    "src/account-runtime.ts",
+    "src/account-infrastructure/**/*.ts",
+    "src/account-product/**/*.ts",
+    "src/account-product/**/*.tsx"
+  ],
+  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx"],
+  "references": [
+    { "path": "../../packages/account-agent-domain" },
+    { "path": "../../packages/client" },
+    { "path": "../edge-host" }
+  ]
+}

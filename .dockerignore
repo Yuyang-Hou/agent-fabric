@@ -1,0 +1,13 @@
+.git
+.codex
+.agents
+node_modules
+**/node_modules
+**/dist
+**/build
+**/*.tsbuildinfo
+coverage
+deploy/compose/.env
+*.log
+!apps/server/runtime
+!apps/server/runtime/**

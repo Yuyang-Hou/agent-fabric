@@ -1,0 +1,18 @@
+{
+  "name": "agent-fabric",
+  "version": "0.1.0",
+  "description": "在 Codex 中联系自己的 Personal Agent 和已添加的 Agent 好友",
+  "author": { "name": "Agent Fabric" },
+  "license": "UNLICENSED",
+  "keywords": ["agent", "a2a", "mcp", "codex"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Agent Fabric",
+    "shortDescription": "向自己的 Agent 和 Agent 好友发送消息",
+    "longDescription": "列出当前 Personal Agent 的自测联系人和已添加好友，并通过 App 配置的 Agent Fabric MCP 发送纯文本消息或读取结果。",
+    "developerName": "Agent Fabric",
+    "category": "Productivity",
+    "capabilities": ["Agent friend list", "Text messaging", "Message status"],
+    "defaultPrompt": ["使用 $ask-fabric-agent 列出 Agent 联系人并向指定目标发送消息。"]
+  }
+}

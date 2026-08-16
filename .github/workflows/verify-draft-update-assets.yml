@@ -1,0 +1,61 @@
+name: Verify draft macOS update assets
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Existing draft prerelease version without the v prefix"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-draft-update-${{ inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  verify-readback:
+    runs-on: macos-15
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_VERSION: ${{ inputs.version }}
+    steps:
+      - name: Check out the immutable release tag
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: v${{ inputs.version }}
+
+      - name: Validate draft identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z]+(\.[0-9A-Za-z]+)*)?$ ]]
+          test "$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/v${RELEASE_VERSION}" --jq .draft)" = true
+          test "$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/v${RELEASE_VERSION}" --jq .prerelease)" = true
+
+      - name: Download the exact draft asset family
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p apps/desktop/release/mac-arm64
+          gh release download "v${RELEASE_VERSION}" \
+            --repo "$GITHUB_REPOSITORY" \
+            --dir apps/desktop/release \
+            --pattern "Agent-Fabric-${RELEASE_VERSION}-arm64.dmg" \
+            --pattern "Agent-Fabric-${RELEASE_VERSION}-arm64.dmg.blockmap" \
+            --pattern "Agent-Fabric-${RELEASE_VERSION}-arm64.zip" \
+            --pattern "Agent-Fabric-${RELEASE_VERSION}-arm64.zip.blockmap" \
+            --pattern "beta-mac.yml"
+          ditto -x -k \
+            "apps/desktop/release/Agent-Fabric-${RELEASE_VERSION}-arm64.zip" \
+            apps/desktop/release/mac-arm64
+
+      - name: Verify updater hashes and Apple trust chain from readback
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/verify-update-assets.mjs
+          node scripts/verify-macos-release.mjs

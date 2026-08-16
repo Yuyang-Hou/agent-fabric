@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": { "composite": true, "rootDir": "src", "outDir": "dist" },
+  "include": ["src/index.ts", "src/account-agents/**/*.ts", "src/account-infrastructure/**/*.ts"],
+  "exclude": ["src/**/*.test.ts", "src/account-agents/migration-only-*.ts"],
+  "references": [
+    { "path": "../../packages/account-agent-domain" },
+    { "path": "../../packages/a2a-task" },
+    { "path": "../../packages/runtime-contract" },
+    { "path": "../../adapters/runtime-codex-acp" }
+  ]
+}

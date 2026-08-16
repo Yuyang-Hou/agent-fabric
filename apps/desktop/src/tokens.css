@@ -1,0 +1,37 @@
+:root {
+  color-scheme: light;
+  --fabric-shell: #f2f2f4;
+  --fabric-shell-strong: #e9e9ec;
+  --fabric-canvas: #ffffff;
+  --fabric-raised: #ffffff;
+  --fabric-subtle: #f7f7f8;
+  --fabric-selected: #e5e5e8;
+  --fabric-hover: #f0f0f2;
+  --fabric-text: #1b1b1f;
+  --fabric-text-muted: #6d6d76;
+  --fabric-text-faint: #9b9ba3;
+  --fabric-rule: #e7e7ea;
+  --fabric-rule-strong: #d8d8dd;
+  --fabric-focus: #4d6fe8;
+  --fabric-positive: #2c9a55;
+  --fabric-positive-soft: #edf8f0;
+  --fabric-warning: #ad6a13;
+  --fabric-warning-soft: #fff7e7;
+  --fabric-negative: #d44040;
+  --fabric-negative-soft: #fff0f0;
+  --fabric-info: #3d6fe8;
+  --fabric-space-1: 0.25rem;
+  --fabric-space-2: 0.5rem;
+  --fabric-space-3: 0.75rem;
+  --fabric-space-4: 1rem;
+  --fabric-space-5: 1.25rem;
+  --fabric-space-6: 1.5rem;
+  --fabric-space-7: 2rem;
+  --fabric-space-8: 2.5rem;
+  --fabric-radius-control: 0.55rem;
+  --fabric-radius-panel: 0.9rem;
+  --fabric-radius-canvas: 1.05rem;
+  --fabric-shadow-float: 0 14px 36px rgb(25 25 32 / 12%);
+  --fabric-font: "Inter Variable", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --fabric-mono: "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, monospace;
+}

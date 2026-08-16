@@ -1,0 +1,12 @@
+{
+  "name": "@agent-fabric/mcp-host",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": { "agent-fabric-mcp": "dist/bin.js" },
+  "files": ["dist"],
+  "engines": { "node": ">=20.9.0" },
+  "dependencies": {
+    "@agent-fabric/mcp-server": "workspace:*"
+  }
+}

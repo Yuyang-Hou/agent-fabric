@@ -1,0 +1,4 @@
+interface:
+  display_name: "询问 Fabric Agent"
+  short_description: "向当前账号可访问的 Agent 提问"
+  default_prompt: "使用 $ask-fabric-agent 查找可访问的 Agent，并通过 A2A 向指定目标提问。"

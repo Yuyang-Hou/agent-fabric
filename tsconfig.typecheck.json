@@ -1,0 +1,41 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false
+  },
+  "include": [
+    "apps/cli/src/**/*.ts",
+    "apps/desktop/src/account-agent-*.ts",
+    "apps/desktop/src/account-runtime.ts",
+    "apps/desktop/src/account-infrastructure/**/*.ts",
+    "apps/desktop/src/account-product/**/*.ts",
+    "apps/desktop/src/account-product/**/*.tsx",
+    "apps/desktop/src/index.ts",
+    "apps/desktop/src/main.ts",
+    "apps/desktop/src/preload.ts",
+    "apps/desktop/src/renderer-entry.tsx",
+    "apps/edge-host/src/account-agents/**/*.ts",
+    "apps/edge-host/src/account-infrastructure/**/*.ts",
+    "apps/edge-host/src/index.ts",
+    "apps/mcp-host/src/**/*.ts",
+    "apps/server/src/**/*.ts",
+    "packages/a2a-task/src/**/*.ts",
+    "packages/account-agent-domain/src/**/*.ts",
+    "packages/client/src/**/*.ts",
+    "packages/fabric-contracts/src/**/*.ts",
+    "packages/mcp-server/src/**/*.ts",
+    "packages/persistence-mysql/src/**/*.ts",
+    "packages/runtime-contract/src/**/*.ts",
+    "adapters/runtime-codex-acp/src/**/*.ts",
+    "adapters/runtime-fake/src/**/*.ts",
+    "vitest.*.config.ts"
+  ],
+  "exclude": [
+    "**/dist/**",
+    "**/node_modules/**"
+  ]
+}

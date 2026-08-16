@@ -1,0 +1,50 @@
+.agent-fabric-update-notification {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 100;
+  display: grid;
+  width: min(22rem, calc(100vw - 2rem));
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: .75rem;
+  border: 1px solid var(--fabric-rule-strong, #d5d5da);
+  border-radius: .8rem;
+  background: var(--fabric-raised, #fff);
+  box-shadow: var(--fabric-shadow-float, 0 12px 36px rgb(0 0 0 / 14%));
+  padding: 1rem;
+  color: var(--fabric-text, #202026);
+}
+
+.agent-fabric-update-icon {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  border-radius: .55rem;
+  background: var(--fabric-positive-soft, #edf8f0);
+  color: var(--fabric-positive, #26733d);
+}
+
+.agent-fabric-update-icon svg,
+.agent-fabric-update-dismiss svg { width: 1rem; height: 1rem; }
+.agent-fabric-update-copy { display: grid; min-width: 0; gap: .3rem; padding-right: .8rem; }
+.agent-fabric-update-copy strong { font-size: .86rem; }
+.agent-fabric-update-copy p,
+.agent-fabric-update-copy small { color: var(--fabric-text-muted, #65656e); line-height: 1.45; }
+.agent-fabric-update-copy p { font-size: .78rem; }
+.agent-fabric-update-copy small { max-height: 4.2em; overflow: hidden; font-size: .72rem; }
+.agent-fabric-update-dismiss { position: absolute; top: .55rem; right: .55rem; display: grid; width: 1.75rem; height: 1.75rem; place-items: center; border-radius: .45rem; background: transparent; color: var(--fabric-text-muted, #65656e); }
+.agent-fabric-update-dismiss:hover { background: var(--fabric-hover, #f0f0f3); }
+.agent-fabric-update-actions { display: flex; justify-content: flex-end; gap: .45rem; margin-top: .45rem; }
+.agent-fabric-update-actions button { min-height: 2rem; border: 1px solid var(--fabric-rule-strong, #d5d5da); border-radius: .5rem; background: var(--fabric-raised, #fff); padding: .35rem .7rem; font-size: .74rem; font-weight: 600; }
+.agent-fabric-update-actions button.is-primary { border-color: var(--fabric-text, #202026); background: var(--fabric-text, #202026); color: var(--fabric-canvas, #fff); }
+
+@media (prefers-reduced-motion: no-preference) {
+  .agent-fabric-update-notification { animation: agent-fabric-update-in 180ms ease-out; }
+}
+
+@keyframes agent-fabric-update-in {
+  from { opacity: 0; transform: translateY(.5rem); }
+  to { opacity: 1; transform: translateY(0); }
+}

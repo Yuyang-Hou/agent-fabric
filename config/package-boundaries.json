@@ -1,0 +1,70 @@
+{
+  "schemaVersion": 1,
+  "layers": [
+    {
+      "path": "packages/account-agent-domain",
+      "forbiddenImports": ["electron", "matrix-js-sdk", "@multica/", "@paperclipai/", "@agentclientprotocol/", "@a2a-js/", "@agent-fabric/", "node:fs", "node:child_process", "node:net"]
+    },
+    {
+      "path": "packages/fabric-contracts",
+      "forbiddenImports": ["electron", "matrix-js-sdk", "@agentclientprotocol/", "@agent-fabric/runtime-", "node:fs", "node:child_process"]
+    },
+    {
+      "path": "packages/client",
+      "forbiddenImports": ["electron", "matrix-js-sdk", "@agentclientprotocol/", "@agent-fabric/runtime-", "node:fs", "node:child_process"]
+    },
+    {
+      "path": "packages/persistence-mysql",
+      "forbiddenImports": ["electron", "matrix-js-sdk", "@agentclientprotocol/", "@agent-fabric/runtime-", "node:child_process"]
+    },
+    {
+      "path": "packages/mcp-server",
+      "forbiddenImports": ["electron", "matrix-js-sdk", "@agentclientprotocol/", "@agent-fabric/runtime-", "node:fs", "node:child_process"]
+    },
+    {
+      "path": "apps/mcp-host",
+      "forbiddenImports": ["electron", "matrix-js-sdk", "@agentclientprotocol/", "@agent-fabric/runtime-", "node:child_process"]
+    },
+    {
+      "path": "packages/codex-plugin",
+      "forbiddenImports": ["electron", "matrix-js-sdk", "@agentclientprotocol/", "@agent-fabric/runtime-", "node:fs", "node:child_process"]
+    },
+    {
+      "path": "apps/server",
+      "forbiddenImports": ["electron", "matrix-js-sdk", "@agentclientprotocol/", "@agent-fabric/runtime-", "node:child_process"]
+    },
+    {
+      "path": "apps/cli",
+      "forbiddenImports": ["electron", "matrix-js-sdk", "@agentclientprotocol/", "@agent-fabric/runtime-"]
+    },
+    {
+      "path": "apps/desktop",
+      "forbiddenImports": ["node:fs", "node:child_process", "@agentclientprotocol/", "@paperclipai/", "@agent-fabric/runtime-"],
+      "allowedImportExceptions": [
+        { "file": "src/updater/preferences.ts", "imports": ["node:fs"] },
+        { "file": "src/updater/preferences.test.ts", "imports": ["node:fs"] },
+        { "file": "src/updater/service.test.ts", "imports": ["node:fs"] }
+      ]
+    },
+    {
+      "path": "apps/edge-host",
+      "forbiddenImports": ["electron", "@agent-fabric/ui", "@agent-fabric/control-plane", "@paperclipai/"]
+    },
+    {
+      "path": "packages/a2a-task",
+      "forbiddenImports": ["matrix-js-sdk", "electron", "@agentclientprotocol/", "@agent-fabric/runtime-", "node:child_process"]
+    },
+    {
+      "path": "packages/runtime-contract",
+      "forbiddenImports": ["electron", "matrix-js-sdk", "@paperclipai/", "@agentclientprotocol/", "@a2a-js/", "@agent-fabric/control-plane"]
+    },
+    {
+      "path": "adapters/runtime-fake",
+      "forbiddenImports": ["electron", "matrix-js-sdk", "@a2a-js/", "@agentclientprotocol/", "@paperclipai/", "@agent-fabric/control-plane", "@agent-fabric/ui"]
+    },
+    {
+      "path": "adapters/runtime-codex-acp",
+      "forbiddenImports": ["electron", "matrix-js-sdk", "@a2a-js/", "@paperclipai/", "@agent-fabric/control-plane", "@agent-fabric/ui"]
+    }
+  ]
+}

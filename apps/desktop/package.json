@@ -1,0 +1,63 @@
+{
+  "name": "@agent-fabric/desktop",
+  "version": "0.1.0-beta.2",
+  "description": "Account-scoped multi-Agent management, Runtime, member and Codex MCP desktop app.",
+  "author": "Agent Fabric",
+  "private": true,
+  "type": "module",
+  "main": "build/main.mjs",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "dependencies": {
+    "@agent-fabric/account-agent-domain": "workspace:*",
+    "@agent-fabric/client": "workspace:*",
+    "@agent-fabric/edge-host": "workspace:*",
+    "@base-ui/react": "^1.7.0",
+    "@fontsource-variable/inter": "^5.3.0",
+    "@fontsource-variable/jetbrains-mono": "^5.3.0",
+    "@fontsource-variable/space-grotesk": "^5.3.0",
+    "@tanstack/react-table": "9.1.2",
+    "electron-updater": "6.8.3",
+    "lucide-react": "^1.31.0",
+    "react": "19.1.1",
+    "react-dom": "19.1.1",
+    "sonner": "^2.0.8",
+    "ws": "8.21.3",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@testing-library/react": "16.3.0",
+    "@types/react": "19.1.10",
+    "@types/react-dom": "19.1.7",
+    "electron": "43.3.0",
+    "electron-builder": "26.15.3",
+    "electron-vite": "5.0.0",
+    "esbuild": "0.28.1",
+    "happy-dom": "18.0.1",
+    "tailwindcss": "^4.3.3",
+    "vite": "7.3.6"
+  },
+  "scripts": {
+    "build:app": "electron-vite build && node ../../scripts/build-desktop.mjs",
+    "generate:mac-icon": "electron ../../scripts/generate-macos-icon.mjs",
+    "package:mac:smoke": "pnpm run build:app && electron-builder --mac --dir --config electron-builder.yml",
+    "package:mac": "pnpm run generate:mac-icon && pnpm run build:app && electron-builder --mac dmg zip --arm64 --config electron-builder.yml --publish never",
+    "release:mac:arm64": "pnpm run package:mac && node ../../scripts/verify-macos-release.mjs",
+    "capture:app": "pnpm run build:app && electron ../../scripts/capture-desktop.mjs build/acceptance.png",
+    "capture:account-ui": "pnpm run build:app && node ../../scripts/capture-account-product-ui.mjs",
+    "capture:local-runtime": "pnpm run build:app && AGENT_FABRIC_MODE=local-runtime-acceptance electron ../../scripts/capture-desktop.mjs build/local-runtime-acceptance.png",
+    "start:local-runtime": "pnpm run build:app && AGENT_FABRIC_MODE=local-runtime-acceptance electron build/main.mjs",
+    "start": "pnpm run build:app && electron build/main.mjs"
+  }
+}

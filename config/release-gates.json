@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "gates": [
+    {
+      "id": "personal-account-friends-authority",
+      "requiredFor": ["development", "commercial-alpha"],
+      "status": "approved",
+      "evidence": "openspec/changes/replace-account-members-with-friends"
+    },
+    {
+      "id": "current-product-surface",
+      "requiredFor": ["development", "commercial-alpha"],
+      "status": "approved",
+      "evidence": "config/default-product.json"
+    },
+    {
+      "id": "signed-notarized-macos-artifact",
+      "requiredFor": ["commercial-alpha"],
+      "status": "approved",
+      "evidence": "docs/implementation/multica-aligned-agents-product/verification-evidence.md"
+    },
+    {
+      "id": "trusted-macos-auto-update",
+      "requiredFor": ["commercial-alpha"],
+      "status": "pending",
+      "evidence": "openspec/changes/multica-aligned-agents-product/tasks.md#21-implement-trusted-macos-desktop-auto-update"
+    }
+  ]
+}

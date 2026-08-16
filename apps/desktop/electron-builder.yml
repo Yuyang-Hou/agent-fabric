@@ -1,0 +1,36 @@
+appId: ai.agentfabric.desktop
+productName: Agent Fabric
+artifactName: Agent-Fabric-${version}-${arch}.${ext}
+directories:
+  output: release
+files:
+  - build/**
+  - package.json
+  - "!node_modules/@openai/codex-darwin-x64{,/**}"
+  - "!node_modules/@openai/codex-linux-arm64{,/**}"
+  - "!node_modules/@openai/codex-linux-x64{,/**}"
+  - "!node_modules/@openai/codex-win32-arm64{,/**}"
+  - "!node_modules/@openai/codex-win32-x64{,/**}"
+extraResources:
+  - from: ../edge-host/build
+    to: edge-host
+asar: true
+forceCodeSigning: true
+mac:
+  category: public.app-category.productivity
+  icon: build-resources/icon.icns
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: build-resources/entitlements.mac.plist
+  entitlementsInherit: build-resources/entitlements.mac.plist
+  target:
+    - dmg
+    - zip
+dmg:
+  sign: true
+publish:
+  provider: github
+  owner: Yuyang-Hou
+  repo: agent-fabric
+  channel: beta
+  releaseType: draft

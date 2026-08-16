@@ -1,0 +1,27 @@
+changelog:
+  exclude:
+    labels:
+      - changelog:skip
+      - release:internal
+    authors:
+      - dependabot[bot]
+  categories:
+    - title: "⚠️ 破坏性变更"
+      labels:
+        - release:breaking
+    - title: "✨ 新增"
+      labels:
+        - release:feature
+    - title: "🔧 改进"
+      labels:
+        - release:improvement
+        - release:docs
+    - title: "🐛 修复"
+      labels:
+        - release:fix
+    - title: "🔒 安全"
+      labels:
+        - release:security
+    - title: "其他变更"
+      labels:
+        - "*"

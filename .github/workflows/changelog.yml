@@ -1,0 +1,36 @@
+name: Changelog
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Validate Changelog contracts
+        run: |
+          node --test scripts/changelog.test.mjs
+          node scripts/changelog.mjs check
+
+      - name: Add unreleased preview to the job summary
+        shell: bash
+        run: |
+          shopt -s nullglob
+          entries=(changelog/unreleased/*.md)
+          if (( ${#entries[@]} == 0 )); then
+            echo "## Changelog preview" >> "$GITHUB_STEP_SUMMARY"
+            echo "No unreleased user-visible entries." >> "$GITHUB_STEP_SUMMARY"
+          else
+            node scripts/changelog.mjs preview >> "$GITHUB_STEP_SUMMARY"
+          fi

@@ -1,0 +1,70 @@
+version: 2
+project_type: node
+
+stages:
+  - install
+  - verify
+  - build
+
+install:
+  stage: install
+  image: registry.cn-beijing.aliyuncs.com/yuanfd/yun_image-base:node20-pnpm9
+  script:
+    - pnpm install --frozen-lockfile
+  artifacts:
+    name: install
+    path:
+      - '*/**'
+
+verify:
+  stage: verify
+  image: registry.cn-beijing.aliyuncs.com/yuanfd/yun_image-base:node20-pnpm9
+  dependencies:
+    - install
+  script:
+    - pnpm run build
+    - pnpm run test
+    - pnpm run verify:source
+    - pnpm run verify:boundaries
+
+build-test:
+  stage: build
+  image: registry.cn-beijing.aliyuncs.com/yuanfd/yun_image-base:node20-pnpm9
+  only:
+    branch:
+      - deploy-test
+  except:
+    events:
+      - patchset-created
+  dependencies:
+    - install
+  script:
+    - pnpm run build
+  artifacts:
+    name: test
+    docker: true
+    tags:
+      - test
+    path:
+      - '*/**'
+
+build-production:
+  stage: build
+  image: registry.cn-beijing.aliyuncs.com/yuanfd/yun_image-base:node20-pnpm9
+  only:
+    branch:
+      - master
+  except:
+    events:
+      - patchset-created
+  dependencies:
+    - install
+  script:
+    - pnpm run build
+  artifacts:
+    name: production
+    docker: true
+    tags:
+      - online
+    path:
+      - '*/**'

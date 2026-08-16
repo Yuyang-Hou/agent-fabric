@@ -1,0 +1,14 @@
+{
+  "name": "@agent-fabric/cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": { "agent-fabric": "dist/bin.js" },
+  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
+  "files": ["dist"],
+  "engines": { "node": ">=20.9.0" },
+  "dependencies": {
+    "@agent-fabric/client": "workspace:*",
+    "@agent-fabric/mcp-server": "workspace:*"
+  }
+}

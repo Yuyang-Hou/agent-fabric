@@ -1,0 +1,21 @@
+{
+  "name": "@agent-fabric/edge-host",
+  "version": "0.1.0-beta.2",
+  "private": true,
+  "type": "module",
+  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
+  "files": ["dist"],
+  "engines": { "node": ">=20.9.0" },
+  "dependencies": {
+    "@agent-fabric/account-agent-domain": "workspace:*",
+    "@agent-fabric/a2a-task": "workspace:*",
+    "@agent-fabric/runtime-codex-acp": "workspace:*",
+    "@agent-fabric/runtime-contract": "workspace:*",
+    "smol-toml": "1.8.0",
+    "ws": "8.21.3"
+  },
+  "devDependencies": {
+    "@agent-fabric/runtime-fake": "workspace:*",
+    "@types/ws": "8.18.1"
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "name": "@agent-fabric/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
+  "files": ["dist"],
+  "engines": { "node": ">=20.9.0" },
+  "dependencies": {
+    "@agent-fabric/account-agent-domain": "workspace:*",
+    "@agent-fabric/a2a-task": "workspace:*",
+    "@agent-fabric/fabric-contracts": "workspace:*",
+    "@agent-fabric/persistence-mysql": "workspace:*",
+    "@a2a-js/sdk": "1.0.1",
+    "express": "5.1.0",
+    "undici": "7.29.0",
+    "ws": "8.21.3"
+  },
+  "devDependencies": { "@agent-fabric/client": "workspace:*", "@types/express": "5.0.3", "@types/ws": "8.18.1" },
+  "scripts": { "start": "node dist/bin.js" },
+  "bin": { "agent-fabric-server": "dist/bin.js" }
+}

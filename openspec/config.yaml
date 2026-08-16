@@ -1,0 +1,27 @@
+schema: spec-driven
+
+context: |
+  Product: Agent Fabric, an Account-scoped multi-Agent management product with local Runtime execution and standard A2A invocation.
+  Current sole product authority: openspec/changes/multica-aligned-agents-product.
+  Current product: a Multica-aligned Account-scoped multi-Agent management and creation product, plus Codex MCP access to invokable Agents over standard A2A.
+  Supersession: every earlier change is historical evidence only; its unfinished tasks and conflicting requirements must not drive implementation.
+  Architecture authority: ARCHITECTURE.md.
+  External data plane: A2A v1.0.1 HTTP+JSON/REST.
+  Internal boundaries: Account Server APIs, Edge Host and Runtime Adapter v1.
+  Privacy: runtime credentials, absolute paths, private context and runtime session IDs remain on Edge.
+  Legacy: all previous single-Agent, Personal Agent, Agent-friend messaging, headless and colleague-mesh plans are superseded as product targets and are not API compatibility requirements.
+  Preferred implementation: TypeScript on Node.js 20+, with runtime-neutral contracts and contract tests.
+
+rules:
+  proposal:
+    - State whether the change affects A2A, Account Server APIs, Edge Host, Runtime Adapter, or product UI.
+    - List explicit non-goals when a change could expand security or compatibility scope.
+  design:
+    - Explain trust boundaries, data residency, failure behavior, and alternatives considered.
+    - Do not introduce private A2A fields without a documented interoperability gap.
+  specs:
+    - Every requirement must include testable success, failure, and isolation scenarios where applicable.
+    - Use A2A standard terms for Message, Task, Context, Artifact, Agent Card, and TaskState.
+  tasks:
+    - Keep each checkbox verifiable within one implementation session.
+    - Include contract tests and sensitive-data leakage checks before product integration.
