@@ -5,7 +5,7 @@
 | Scope | Command | Result |
 | --- | --- | --- |
 | Full repository gate | `pnpm run check` | passed |
-| Unit | `pnpm run test:unit` | 55 files, 272 tests passed |
+| Unit | `pnpm run test:unit` | 55 files, 274 tests passed |
 | Contract | `pnpm run test:contract` | 3 files, 18 tests passed |
 | Desktop build | `pnpm --dir apps/desktop run build:app` | passed |
 | Deterministic Desktop capture | `node scripts/capture-account-product-ui.mjs` | 37 screenshots generated; layout assertions passed |
@@ -32,7 +32,15 @@
 - Because every non-owner Human/resource/session count is zero, the bounded per-Human resource migration plan is not required. Schema v11 will revoke the two pending legacy member invitations and will not convert them into Friendships.
 - The temporary audit service was deleted after result readback; the production environment was independently confirmed to contain only the original `api` and `MySQL` services, both healthy. Database URLs, credentials, invitation identities and row details were neither queried nor recorded.
 
+## Signed beta self-test candidate
+
+- `v0.1.0-beta.3` was built from current public `main`, signed with Developer ID, accepted by Apple notarization, stapled and accepted by Gatekeeper on macOS arm64.
+- The quarantined DMG and copied App completed first launch into the Account Agents product without a white screen. The installed `/Applications/Agent Fabric.app` reports `0.1.0-beta.3`, has a valid deep signature and App Staple, and is accepted by Gatekeeper.
+- The GitHub Pre-release is public at <https://github.com/Yuyang-Hou/agent-fabric/releases/tag/v0.1.0-beta.3>. Its DMG, DMG blockmap, ZIP, ZIP blockmap and `beta-mac.yml` were read back as uploaded with exact local sizes after post-Staple metadata refresh.
+- The packaged product check found the four MCP tools `list_agents`, `find_agent`, `ask_agent`, `get_task`; the running installed App showed the Friends navigation, owned/friend-opened Agent scopes and healthy Runtime/MCP/Cloud status.
+- This candidate enables manual Friendship acceptance only. It does not approve the final commercial or trusted updater gates.
+
 ## Real-environment gates intentionally not claimed
 
 - Two-distinct-Google-Human acceptance, real cross-user A2A, immediate revoke verification and product screenshot approval require the user's real accounts/environment.
-- A newly signed/notarized/stapled release and real updater N-to-N+1 publication were not performed. The commercial release gate remains fail-closed until those release actions pass.
+- Real updater N-to-N+1 requires a later signed beta and was not performed. The commercial release gate remains fail-closed until the remaining real acceptance and updater actions pass.

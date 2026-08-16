@@ -71,7 +71,7 @@
 ## 9. Real acceptance and delivery
 
 - [x] 9.1 Run the read-only target-database migration audit; if real non-owner data exists, stop and obtain explicit approval for the generated resource migration plan.
-- [ ] 9.2 Build a versioned beta self-test candidate from current `main`; pass signing, notarization, Staple, Gatekeeper, quarantine first launch and update-asset checks; publish it as GitHub Pre-release and install it on the tester's Mac without approving pending final gates.
+- [x] 9.2 Build a versioned beta self-test candidate from current `main`; pass signing, notarization, Staple, Gatekeeper, quarantine first launch and update-asset checks; publish it as GitHub Pre-release and install it on the tester's Mac without approving pending final gates.
 - [ ] 9.3 Complete real acceptance with two distinct Google Humans/personal Accounts: visible received invitation, accept, active Friendship and no Account ownership change.
 - [ ] 9.4 Prove B sees A's friend-opened Agent safe summary in Desktop and MCP, receives a real standard A2A answer, and cannot access A's Runtime/configuration/Activity/secrets.
 - [ ] 9.5 Prove private toggle and friend removal immediately remove Desktop/MCP discovery, deny new delivery and deny prior Task reread without Runtime execution; capture approved desktop/narrow screenshots and reconcile the bounded visual/accessibility review.
