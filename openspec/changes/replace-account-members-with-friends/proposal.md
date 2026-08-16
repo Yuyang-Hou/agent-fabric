@@ -16,6 +16,7 @@
 - 保留 `list_agents`、`find_agent`、`ask_agent`、`get_task` 四个 MCP 工具和标准 A2A 数据面，把授权从“同 Account member”改为“Owner 或有效好友且 Agent 已开放”。
 - Account 继续作为单个 Human 的资源与 Runtime 隔离边界；首期不提供 Account 切换、团队共同所有、管理员、指定好友授权、公共 Agent 目录、App 内聊天或好友间 Runtime 共享。
 - 现有成员、邀请和访问数据采用拒绝扩权迁移：所有非私有 Agent 先迁为私有，待处理成员邀请不自动建立好友；真实非 Owner 成员和其资源在迁移前必须审计并显式处置。
+- 真实双 Human 验收使用已签名、公证并通过 macOS 首启安全检查的公开 beta 自测候选；候选可以先作为 GitHub Pre-release 发布和安装，但在好友链路、撤权与更新验收完成前不得冒充最终发布批准。
 
 ## Capabilities
 

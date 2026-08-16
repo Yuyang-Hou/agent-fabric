@@ -72,3 +72,14 @@ Release acceptance SHALL use two distinct verified Humans with separate personal
 #### Scenario: Revocation is proven
 - **WHEN** either Human removes the Friendship after a completed Task
 - **THEN** B no longer sees or discovers A's Agent, a new ask is rejected before Runtime execution and the prior Task body cannot be reread
+
+### Requirement: Signed beta candidates enable real release acceptance
+The project MAY publish and install a fixed signed beta candidate before the two-Human acceptance so testers exercise the real distribution. That candidate SHALL be a GitHub Pre-release on the fixed beta channel, MUST pass signing, notarization, Staple, Gatekeeper, quarantine first launch and update-asset consistency checks, and MUST NOT approve final release gates while real Friendship or N→N+1 evidence remains pending.
+
+#### Scenario: Tester requests the current beta candidate
+- **WHEN** the current `main` has passed code, migration, source, boundary and supply-chain gates and a tester needs the App for real acceptance
+- **THEN** one versioned signed beta candidate is built, notarized, published with DMG/ZIP/beta metadata and installed on the tester's Mac
+
+#### Scenario: Candidate is published before real friendship acceptance
+- **WHEN** the beta candidate is publicly downloadable but the two-Human or immediate-revocation scenarios are not yet recorded
+- **THEN** the release remains explicitly pre-release, final release gates remain pending and no completion claim relies on the candidate publication alone

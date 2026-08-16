@@ -71,8 +71,8 @@
 ## 9. Real acceptance and delivery
 
 - [x] 9.1 Run the read-only target-database migration audit; if real non-owner data exists, stop and obtain explicit approval for the generated resource migration plan.
-- [ ] 9.2 Complete real acceptance with two distinct Google Humans/personal Accounts: visible received invitation, accept, active Friendship and no Account ownership change.
-- [ ] 9.3 Prove B sees A's friend-opened Agent safe summary in Desktop and MCP, receives a real standard A2A answer, and cannot access A's Runtime/configuration/Activity/secrets.
-- [ ] 9.4 Prove private toggle and friend removal immediately remove Desktop/MCP discovery, deny new delivery and deny prior Task reread without Runtime execution.
-- [ ] 9.5 Capture approved desktop/narrow screenshots, run the bounded visual/accessibility finish review and reconcile all findings.
-- [ ] 9.6 Build the final App/DMG and pass signing, notarization, stapling, Gatekeeper, quarantine first launch and truthful release/changelog gates before publication.
+- [ ] 9.2 Build a versioned beta self-test candidate from current `main`; pass signing, notarization, Staple, Gatekeeper, quarantine first launch and update-asset checks; publish it as GitHub Pre-release and install it on the tester's Mac without approving pending final gates.
+- [ ] 9.3 Complete real acceptance with two distinct Google Humans/personal Accounts: visible received invitation, accept, active Friendship and no Account ownership change.
+- [ ] 9.4 Prove B sees A's friend-opened Agent safe summary in Desktop and MCP, receives a real standard A2A answer, and cannot access A's Runtime/configuration/Activity/secrets.
+- [ ] 9.5 Prove private toggle and friend removal immediately remove Desktop/MCP discovery, deny new delivery and deny prior Task reread without Runtime execution; capture approved desktop/narrow screenshots and reconcile the bounded visual/accessibility review.
+- [ ] 9.6 After real acceptance, record final delivery evidence, keep any unproven N→N+1 updater gate pending until a later signed beta exists, and approve only the gates actually proven.

@@ -99,6 +99,12 @@ A2A Message、Task、TaskState、Artifact 和 Agent Card 保持 v1.0.1 标准形
 
 完成 proposal/design/spec/tasks 后，更新 `openspec/CURRENT.md`、主 specs、默认产品配置、PRODUCT、ARCHITECTURE、README 和发布 Gate，使 `replace-account-members-with-friends` 成为唯一活动目标。当前 `multica-aligned-agents-product` 归档为已交付基线/迁移证据，未完成的 member real-acceptance 与发布任务不得继续冒充新产品验收。
 
+### 11. 已签名 beta 自测候选先于双 Human 验收
+
+真实好友验收需要测试者安装与生产服务匹配的发行 App，因此允许先从已通过代码、迁移与供应链门禁的 `main` 构建一个固定版本 beta。该候选必须完成 Developer ID 签名、公证、Staple、Gatekeeper、quarantine 首启和更新资产一致性检查，并只作为 GitHub Pre-release 发布到固定 `beta` channel。
+
+发布自测候选不等于最终发布批准：`trusted-macos-auto-update`、双 Human 好友链路、即时撤权和最终视觉验收继续保持 pending。只有真实验收完成并记录证据后，才能批准最终发行门禁；需要后续版本才能验证的 N→N+1 更新必须使用另一个已签名 beta，不能用同一产物自证。
+
 ## Risks / Trade-offs
 
 - [跨 Account 查询扩大枚举面] → 只从已验证 Human 关系出发查询，未授权与不存在统一返回，禁止公共名称/邮箱搜索。
@@ -116,8 +122,9 @@ A2A Message、Task、TaskState、Artifact 和 Agent Card 保持 v1.0.1 标准形
 3. 实现统一好友授权与新 API，完成 Fake 双账号契约测试，但暂不切默认 UI。
 4. 更新 Desktop、MCP、A2A 和 invalidation，默认把旧访问映射为 private。
 5. 切换 `CURRENT.md`、主 specs 和 default-product Gate，禁用旧 member mutation 路由。
-6. 完成两 Google 账号/两隔离设备真实验收与撤权检查后，才允许签名、公证和发布。
-7. 至少保留一个版本的旧表只读备份；确认无回滚需求后另立清理任务。
+6. 从当前 `main` 构建、签名、公证、Staple 并发布一个明确标记为 Pre-release 的 beta 自测候选，安装到测试设备。
+7. 使用该发行候选完成两 Google 账号/两隔离设备真实验收、撤权检查和视觉走查；验收完成前最终发行门禁保持 pending。
+8. 至少保留一个版本的旧表只读备份；确认无回滚需求后另立清理任务。
 
 ## Open Questions
 

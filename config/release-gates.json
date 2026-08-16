@@ -16,8 +16,8 @@
     {
       "id": "signed-notarized-macos-artifact",
       "requiredFor": ["commercial-alpha"],
-      "status": "approved",
-      "evidence": "docs/implementation/multica-aligned-agents-product/verification-evidence.md"
+      "status": "pending",
+      "evidence": "openspec/changes/replace-account-members-with-friends/tasks.md#9-real-acceptance-and-delivery"
     },
     {
       "id": "trusted-macos-auto-update",
