@@ -33,7 +33,7 @@
     "changelog:preview": "node scripts/changelog.mjs preview",
     "changelog:prepare": "node scripts/changelog.mjs prepare",
     "test:changelog": "node --test scripts/changelog.test.mjs",
-    "test:update-assets": "node --test scripts/verify-update-assets.test.mjs scripts/verify-updater-contract.test.mjs",
+    "test:update-assets": "node --test scripts/refresh-notarized-update-assets.test.mjs scripts/verify-update-assets.test.mjs scripts/verify-updater-contract.test.mjs",
     "supply-chain:generate": "node scripts/generate-supply-chain-artifacts.mjs",
     "verify:supply-chain": "node scripts/generate-supply-chain-artifacts.mjs --check",
     "verify:development": "node scripts/verify-release-gates.mjs --target development",

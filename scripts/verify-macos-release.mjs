@@ -5,6 +5,9 @@ import path from "node:path";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 
+import { refreshNotarizedUpdateAssets } from "./refresh-notarized-update-assets.mjs";
+import { verifyUpdateAssets } from "./verify-update-assets.mjs";
+
 const execFileAsync = promisify(execFile);
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const desktopPackage = JSON.parse(await readFile(path.join(root, "apps", "desktop", "package.json"), "utf8"));
@@ -46,6 +49,8 @@ if (!existingTicket) {
 await checked("/usr/bin/xcrun", ["stapler", "validate", diskImage]);
 const gatekeeper = await checked("/usr/sbin/spctl", ["-a", "-vv", "-t", "install", diskImage]);
 assert.match(gatekeeper, /accepted/iu, "Gatekeeper did not accept the DMG");
+await refreshNotarizedUpdateAssets({ releaseDirectory: release, version });
+await verifyUpdateAssets({ releaseDirectory: release, version });
 await verifyUpdateArchiveContents(updateArchive);
 
 console.log(JSON.stringify({
@@ -62,6 +67,7 @@ console.log(JSON.stringify({
   stapledTicket: "valid",
   gatekeeper: "accepted",
   signedUpdateArchive: true,
+  updateAssetConsistency: true,
 }));
 
 async function checked(command, arguments_) {
