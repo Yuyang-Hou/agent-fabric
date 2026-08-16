@@ -22,6 +22,7 @@
 - [x] 3.5 Enforce one product Owner per personal Account while retaining transitional owner membership rows only as internal foreign-key compatibility.
 - [x] 3.6 Implement the read-only live-data audit for non-owner memberships/resources/sessions, pending member invitations and legacy non-private access; make unsafe data a deployment stop condition.
 - [x] 3.7 Add migration, concurrency, expiry, duplicate pair, self-invite, email mismatch, replay, revocation and sensitive-column persistence tests.
+- [x] 3.8 Restore member-era Builder drafts fail closed as private and discard obsolete invocation targets without blocking Desktop login bootstrap.
 
 ## 4. Replace Account member and authentication APIs
 

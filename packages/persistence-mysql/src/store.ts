@@ -2543,7 +2543,14 @@ function mapAccountA2ATaskRoute(row: AccountA2ATaskRow): AccountA2ATaskRoute {
 }
 
 function mapAccountAgentDraft(row: AccountAgentDraftRow): AgentDraft {
-  return agentDraftSchema.parse(typeof row.draft === "string" ? JSON.parse(row.draft) : row.draft);
+  const stored = typeof row.draft === "string" ? JSON.parse(row.draft) : row.draft;
+  if (!stored || typeof stored !== "object" || Array.isArray(stored)) return agentDraftSchema.parse(stored);
+  const { invocationTargets: _legacyInvocationTargets, ...draft } = stored as Record<string, unknown>;
+  void _legacyInvocationTargets;
+  return agentDraftSchema.parse({
+    ...draft,
+    ...((draft.permissionMode === "account" || draft.permissionMode === "targeted") ? { permissionMode: "private" } : {}),
+  });
 }
 
 function mapAgentActivity(row: AgentActivityRow): AgentActivity {

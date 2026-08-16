@@ -21,6 +21,26 @@ describe("Account Agent creation persistence", () => {
     expect(inserted).not.toEqual(expect.arrayContaining(["credential:member"]));
   });
 
+  it("restores member-era drafts as private without legacy invocation targets", async () => {
+    const store = new MySqlStore("mysql://unused:unused@localhost/unused");
+    const legacyDraft = {
+      ...draftValue("blank"),
+      permissionMode: "account",
+      invocationTargets: [{ type: "member", accountId: "account:one", userId: "human:other" }],
+    };
+    const connection = transactionConnection(async (sql) => {
+      if (sql.includes("FROM account_sessions")) return [[actor()], []];
+      if (sql.includes("FROM agent_builder_drafts")) return [[draftRow(legacyDraft)], []];
+      return [[], []];
+    });
+    Object.defineProperty(store, "pool", { value: { getConnection: async () => connection, end: async () => undefined } });
+
+    const page = await store.listAccountAgentDraftsForCredential("credential:member", { limit: 100 }, now);
+
+    expect(page.items).toEqual([expect.objectContaining({ draftId: "draft:one", permissionMode: "private" })]);
+    expect(page.items[0]).not.toHaveProperty("invocationTargets");
+  });
+
   it("returns a recoverable validation result when the selected Runtime disappeared", async () => {
     const store = new MySqlStore("mysql://unused:unused@localhost/unused");
     const draft = draftValue("blank");

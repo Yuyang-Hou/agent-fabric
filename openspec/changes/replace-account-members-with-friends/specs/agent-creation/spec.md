@@ -10,3 +10,7 @@ The New Agent action SHALL be available only to the signed-in owner of the perso
 #### Scenario: Friend lacks create authority
 - **WHEN** a friend reaches another Human's create route or submits that Human's Account/Runtime identifiers
 - **THEN** the operation is denied and no draft, builder session, Skill, Agent or cross-Account metadata is created
+
+#### Scenario: Legacy member-era draft is restored fail closed
+- **WHEN** an owner restores a pre-Friendship draft carrying Account/member access targets
+- **THEN** the draft is presented as private, the obsolete targets are discarded and login bootstrap remains available without granting friend access
