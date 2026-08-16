@@ -25,8 +25,14 @@
 - Legacy member/join endpoints return bounded `410 account-membership-model-retired`; legacy shared access migrates fail-closed to private.
 - Friends and friend-opened Agent candidate screenshots were manually reviewed at 1280, 768 and 414 widths; the capture harness reported no overflow or wrapped buttons. Product approval remains a real-environment gate below.
 
+## Target-database migration audit
+
+- On 2026-08-16, an explicitly authorized temporary Railway Function ran the six-count audit against `agent-fabric-alpha` production MySQL inside `START TRANSACTION READ ONLY` and completed with `ROLLBACK`.
+- Deployment `e4653623-7d56-4b71-aaa0-8f304acad0d7` reported: `nonOwnerMemberships=0`, `nonOwnerAgents=0`, `nonOwnerRuntimes=0`, `nonOwnerSessions=0`, `pendingMemberInvitations=2`, and `legacySharedAgents=0`.
+- Because every non-owner Human/resource/session count is zero, the bounded per-Human resource migration plan is not required. Schema v11 will revoke the two pending legacy member invitations and will not convert them into Friendships.
+- The temporary audit service was deleted after result readback; the production environment was independently confirmed to contain only the original `api` and `MySQL` services, both healthy. Database URLs, credentials, invitation identities and row details were neither queried nor recorded.
+
 ## Real-environment gates intentionally not claimed
 
-- The target-database read-only migration audit has not been run because no target database was authorized in this task.
 - Two-distinct-Google-Human acceptance, real cross-user A2A, immediate revoke verification and product screenshot approval require the user's real accounts/environment.
 - A newly signed/notarized/stapled release and real updater N-to-N+1 publication were not performed. The commercial release gate remains fail-closed until those release actions pass.

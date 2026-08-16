@@ -69,7 +69,7 @@
 
 ## 9. Real acceptance and delivery
 
-- [ ] 9.1 Run the read-only target-database migration audit; if real non-owner data exists, stop and obtain explicit approval for the generated resource migration plan.
+- [x] 9.1 Run the read-only target-database migration audit; if real non-owner data exists, stop and obtain explicit approval for the generated resource migration plan.
 - [ ] 9.2 Complete real acceptance with two distinct Google Humans/personal Accounts: visible received invitation, accept, active Friendship and no Account ownership change.
 - [ ] 9.3 Prove B sees A's friend-opened Agent safe summary in Desktop and MCP, receives a real standard A2A answer, and cannot access A's Runtime/configuration/Activity/secrets.
 - [ ] 9.4 Prove private toggle and friend removal immediately remove Desktop/MCP discovery, deny new delivery and deny prior Task reread without Runtime execution.
