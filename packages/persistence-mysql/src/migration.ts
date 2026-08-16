@@ -751,3 +751,90 @@ export const humanFriendshipV11MySqlMigrationStatements = [
   "ALTER TABLE account_agent_a2a_tasks DROP INDEX account_a2a_task_origin_idx",
   "ALTER TABLE account_agent_a2a_tasks ADD INDEX account_a2a_task_origin_idx (origin_account_id, origin_credential_id, updated_at)",
 ] as const;
+
+interface MySqlMigrationConnection {
+  query(sql: string, values?: unknown[]): Promise<[unknown, unknown]>;
+}
+
+interface MigrationCountRow {
+  readonly count: number | string;
+}
+
+async function migrationObjectExists(
+  connection: MySqlMigrationConnection,
+  source: "COLUMNS" | "STATISTICS" | "TABLE_CONSTRAINTS",
+  tableName: string,
+  objectName: string,
+): Promise<boolean> {
+  const objectColumn = source === "COLUMNS" ? "COLUMN_NAME" : source === "STATISTICS" ? "INDEX_NAME" : "CONSTRAINT_NAME";
+  const [rows] = await connection.query(
+    `SELECT COUNT(*) AS count FROM information_schema.${source} WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? AND ${objectColumn}=?`,
+    [tableName, objectName],
+  );
+  return Number((rows as MigrationCountRow[])[0]?.count ?? 0) > 0;
+}
+
+/**
+ * MySQL DDL commits statement-by-statement, so v11 must also resume safely
+ * after a container restart. Metadata guards preserve the fail-closed data
+ * updates while preventing duplicate columns, constraints and indexes.
+ */
+export async function applyHumanFriendshipV11Migration(connection: MySqlMigrationConnection): Promise<void> {
+  const [
+    createInvitations,
+    createFriendships,
+    revokeMemberInvitations,
+    clearInvocationTargets,
+    privatizeAgents,
+    ,
+    addAgentPermissionCheck,
+    privatizeRuntimes,
+    ,
+    addRuntimeVisibilityCheck,
+    addOriginAccountColumn,
+    backfillOriginAccount,
+    requireOriginAccount,
+    ,
+    addOriginUserForeignKey,
+    addOriginAccountForeignKey,
+    ,
+    addOriginIndex,
+  ] = humanFriendshipV11MySqlMigrationStatements;
+
+  for (const statement of [createInvitations, createFriendships, revokeMemberInvitations, clearInvocationTargets, privatizeAgents]) {
+    await connection.query(statement);
+  }
+
+  if (await migrationObjectExists(connection, "TABLE_CONSTRAINTS", "account_agents", "account_agents_permission_chk")) {
+    await connection.query("ALTER TABLE account_agents DROP CHECK account_agents_permission_chk");
+  }
+  await connection.query(addAgentPermissionCheck);
+
+  await connection.query(privatizeRuntimes);
+  if (await migrationObjectExists(connection, "TABLE_CONSTRAINTS", "account_runtimes", "account_runtimes_visibility_chk")) {
+    await connection.query("ALTER TABLE account_runtimes DROP CHECK account_runtimes_visibility_chk");
+  }
+  await connection.query(addRuntimeVisibilityCheck);
+
+  if (!await migrationObjectExists(connection, "COLUMNS", "account_agent_a2a_tasks", "origin_account_id")) {
+    await connection.query(addOriginAccountColumn);
+  }
+  await connection.query(backfillOriginAccount);
+  await connection.query(requireOriginAccount);
+
+  if (await migrationObjectExists(connection, "TABLE_CONSTRAINTS", "account_agent_a2a_tasks", "account_a2a_tasks_origin_user_fk")) {
+    await connection.query("ALTER TABLE account_agent_a2a_tasks DROP FOREIGN KEY account_a2a_tasks_origin_user_fk");
+  }
+  if (await migrationObjectExists(connection, "STATISTICS", "account_agent_a2a_tasks", "account_a2a_tasks_origin_user_fk")) {
+    await connection.query("ALTER TABLE account_agent_a2a_tasks DROP INDEX account_a2a_tasks_origin_user_fk");
+  }
+  await connection.query(addOriginUserForeignKey);
+
+  if (!await migrationObjectExists(connection, "TABLE_CONSTRAINTS", "account_agent_a2a_tasks", "account_a2a_tasks_origin_account_fk")) {
+    await connection.query(addOriginAccountForeignKey);
+  }
+  if (await migrationObjectExists(connection, "STATISTICS", "account_agent_a2a_tasks", "account_a2a_task_origin_idx")) {
+    await connection.query("ALTER TABLE account_agent_a2a_tasks DROP INDEX account_a2a_task_origin_idx");
+  }
+  await connection.query(addOriginIndex);
+}

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { accountAgentA2AMySqlMigrationStatements, accountAgentCreationV8MySqlMigrationStatements, accountAgentMySqlMigrationStatements, accountRuntimeDeletionV7MySqlMigrationStatements, accountSelfTestV10MySqlMigrationStatements, humanFriendshipV11MySqlMigrationStatements, initialMySqlMigrationStatements, legacyMigrationRecoveryV9MySqlMigrationStatements, onboardingMySqlMigrationStatements, personalAgentMySqlMigrationStatements, selfServiceMySqlMigrationStatements } from "./migration.js";
+import { accountAgentA2AMySqlMigrationStatements, accountAgentCreationV8MySqlMigrationStatements, accountAgentMySqlMigrationStatements, accountRuntimeDeletionV7MySqlMigrationStatements, accountSelfTestV10MySqlMigrationStatements, applyHumanFriendshipV11Migration, humanFriendshipV11MySqlMigrationStatements, initialMySqlMigrationStatements, legacyMigrationRecoveryV9MySqlMigrationStatements, onboardingMySqlMigrationStatements, personalAgentMySqlMigrationStatements, selfServiceMySqlMigrationStatements } from "./migration.js";
 import { hashCredential, MySqlStore } from "./store.js";
 
 describe("MySQL persistence boundary", () => {
@@ -86,6 +86,45 @@ describe("MySQL persistence boundary", () => {
     expect(sql).toContain("permission_mode IN ('private','friends')");
     expect(sql).toContain("origin_account_id");
     expect(sql).not.toMatch(/invitation_token|token_digest|prompt|answer|artifact_body|runtime_session|cwd|credential_value/iu);
+  });
+
+  it("resumes v11 after non-transactional DDL was partially applied", async () => {
+    const executed: string[] = [];
+    const columns = new Set(["origin_account_id"]);
+    const constraints = new Set(["account_agents_permission_chk", "account_runtimes_visibility_chk"]);
+    const indexes = new Set(["account_a2a_tasks_origin_user_fk", "account_a2a_task_origin_idx"]);
+    const connection = {
+      query: async (sql: string, values?: unknown[]): Promise<[unknown, unknown]> => {
+        executed.push(sql);
+        if (sql.includes("information_schema.COLUMNS")) return [[{ count: columns.has(String(values?.[1])) ? 1 : 0 }], []];
+        if (sql.includes("information_schema.TABLE_CONSTRAINTS")) return [[{ count: constraints.has(String(values?.[1])) ? 1 : 0 }], []];
+        if (sql.includes("information_schema.STATISTICS")) return [[{ count: indexes.has(String(values?.[1])) ? 1 : 0 }], []];
+        if (sql.includes("DROP CHECK account_agents_permission_chk")) constraints.delete("account_agents_permission_chk");
+        if (sql.includes("ADD CONSTRAINT account_agents_permission_chk")) constraints.add("account_agents_permission_chk");
+        if (sql.includes("DROP CHECK account_runtimes_visibility_chk")) constraints.delete("account_runtimes_visibility_chk");
+        if (sql.includes("ADD CONSTRAINT account_runtimes_visibility_chk")) constraints.add("account_runtimes_visibility_chk");
+        if (sql.includes("DROP FOREIGN KEY account_a2a_tasks_origin_user_fk")) constraints.delete("account_a2a_tasks_origin_user_fk");
+        if (sql.includes("DROP INDEX account_a2a_tasks_origin_user_fk")) indexes.delete("account_a2a_tasks_origin_user_fk");
+        if (sql.includes("ADD CONSTRAINT account_a2a_tasks_origin_user_fk")) constraints.add("account_a2a_tasks_origin_user_fk");
+        if (sql.includes("ADD CONSTRAINT account_a2a_tasks_origin_account_fk")) constraints.add("account_a2a_tasks_origin_account_fk");
+        if (sql.includes("DROP INDEX account_a2a_task_origin_idx")) indexes.delete("account_a2a_task_origin_idx");
+        if (sql.includes("ADD INDEX account_a2a_task_origin_idx")) indexes.add("account_a2a_task_origin_idx");
+        return [[], []];
+      },
+    };
+
+    await applyHumanFriendshipV11Migration(connection);
+
+    expect(executed).not.toContain("ALTER TABLE account_agent_a2a_tasks ADD COLUMN origin_account_id varchar(191) NULL AFTER origin_user_id");
+    expect(executed.indexOf("ALTER TABLE account_agent_a2a_tasks DROP INDEX account_a2a_tasks_origin_user_fk"))
+      .toBeLessThan(executed.indexOf("ALTER TABLE account_agent_a2a_tasks ADD CONSTRAINT account_a2a_tasks_origin_user_fk FOREIGN KEY (origin_user_id) REFERENCES principals(principal_id)"));
+    expect(constraints).toEqual(new Set([
+      "account_agents_permission_chk",
+      "account_runtimes_visibility_chk",
+      "account_a2a_tasks_origin_user_fk",
+      "account_a2a_tasks_origin_account_fk",
+    ]));
+    expect(indexes).toContain("account_a2a_task_origin_idx");
   });
 
   it("reports unsafe non-owner data without mutating it", async () => {

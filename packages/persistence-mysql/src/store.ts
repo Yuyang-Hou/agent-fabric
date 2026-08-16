@@ -84,7 +84,7 @@ import { credentialScopeSchema, principalKindSchema, type CredentialScope, type 
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import mysql, { type Pool, type PoolConnection, type ResultSetHeader as ResultHeader, type RowDataPacket } from "mysql2/promise";
 
-import { accountAgentA2AMySqlMigrationStatements, accountAgentCreationV8MySqlMigrationStatements, accountAgentMySqlMigrationStatements, accountRuntimeDeletionV7MySqlMigrationStatements, accountSelfTestV10MySqlMigrationStatements, humanFriendshipV11MySqlMigrationStatements, initialMySqlMigrationStatements, legacyMigrationRecoveryV9MySqlMigrationStatements, onboardingMySqlMigrationStatements, personalAgentMySqlMigrationStatements, selfServiceMySqlMigrationStatements } from "./migration.js";
+import { accountAgentA2AMySqlMigrationStatements, accountAgentCreationV8MySqlMigrationStatements, accountAgentMySqlMigrationStatements, accountRuntimeDeletionV7MySqlMigrationStatements, accountSelfTestV10MySqlMigrationStatements, applyHumanFriendshipV11Migration, initialMySqlMigrationStatements, legacyMigrationRecoveryV9MySqlMigrationStatements, onboardingMySqlMigrationStatements, personalAgentMySqlMigrationStatements, selfServiceMySqlMigrationStatements } from "./migration.js";
 
 const migrationLockName = "agent_fabric_schema_migration";
 const legacyMigrationPrivateFields = ["environment_values", "runtime_credentials", "runtime_configuration", "agent_mcp_credentials", "integration_credentials", "private_skill_contents"] as const;
@@ -215,7 +215,7 @@ export class MySqlStore {
       if (current < 11) {
         const audit = await this.#auditHumanFriendshipMigration(connection);
         if (audit.requiresHumanReview) throw new MySqlPersistenceError("human-friendship-migration-review-required");
-        for (const statement of humanFriendshipV11MySqlMigrationStatements) await connection.query(statement);
+        await applyHumanFriendshipV11Migration(connection);
         await connection.query("INSERT IGNORE INTO schema_migrations(version) VALUES (11)");
       }
       await connection.execute("INSERT IGNORE INTO fabric_instances(instance_id,public_base_url,created_at,bootstrap_consumed_at) VALUES ('instance:account-product','internal',UTC_TIMESTAMP(3),UTC_TIMESTAMP(3))");
