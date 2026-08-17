@@ -7,6 +7,7 @@ type RuntimeStartInput = Parameters<DesktopAccountRuntime["start"]>[0];
 type McpStartInput = Parameters<DesktopAccountAgentMcp["start"]>[0];
 
 export interface AccountProductSessionServicesStatus {
+  readonly runtimes: { runtimeId: string; provider: string }[];
   readonly runtime: { readonly state: "ready" | "failed"; readonly runtimeId?: string; readonly errorCode?: string };
   readonly mcp: { readonly state: "ready" | "failed"; readonly errorCode?: string };
 }
@@ -35,10 +36,16 @@ export class AccountProductSessionServices {
       withTimeout(this.options.runtime.start(input.runtime), timeoutMs, "runtime-start-timeout"),
       withTimeout(this.#startMcp(input.mcp, input.mcpInstallation), timeoutMs, "mcp-start-timeout"),
     ]);
-    const status: AccountProductSessionServicesStatus = Object.freeze({
-      runtime: runtime.status === "fulfilled" ? { state: "ready" as const, runtimeId: runtime.value.runtimeId } : { state: "failed" as const, errorCode: safeErrorCode(runtime.reason) },
+    const runtimes = runtime.status === "fulfilled" ? runtime.value.map((entry) => ({ runtimeId: entry.runtimeId, provider: entry.provider })) : [];
+    const codex = runtimes.find((entry) => entry.provider === "codex");
+    const legacy: AccountProductSessionServicesStatus["runtime"] = runtime.status === "fulfilled"
+      ? codex ? { state: "ready" as const, runtimeId: codex.runtimeId } : { state: "failed" as const, errorCode: "codex-runtime-missing" }
+      : { state: "failed" as const, errorCode: safeErrorCode(runtime.reason) };
+    const status: AccountProductSessionServicesStatus = {
+      runtimes,
+      runtime: legacy,
       mcp: mcp.status === "fulfilled" ? { state: "ready" as const } : { state: "failed" as const, errorCode: safeErrorCode(mcp.reason) },
-    });
+    };
     this.#status = status;
     return status;
   }

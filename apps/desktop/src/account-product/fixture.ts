@@ -34,7 +34,7 @@ const detail = agentDetailProjectionSchema.parse({
 
 const base = accountProductRendererSnapshotSchema.parse({
   session: { state: "signed-in", accountId, accountName: "Agent Fabric", userId: owner.userId, displayName: owner.displayName, email: owner.email, expiresAt: "2026-09-13T08:30:00.000Z" },
-  route: { name: "agents" }, connection: "online", localServices: { runtime: { state: "ready", runtimeId: runtime.runtimeId }, mcp: { state: "ready" } },
+  route: { name: "agents" }, connection: "online", localServices: { runtimes: [{ runtimeId: runtime.runtimeId, provider: "codex" }], runtime: { state: "ready", runtimeId: runtime.runtimeId }, mcp: { state: "ready" } },
   catalog: { accountId, scope: "mine", rows: catalogRows, counts: { mine: 3, friends: 1, archived: 1 } },
   activities: [{ activityId: "activity:one", accountId, agentId: agents[0].id, taskId: "task:customer-question", terminalState: "completed", startedAt: "2026-08-13T08:28:50.000Z", completedAt: at, durationMs: 70_000 }],
   skills: { agentId: agents[0].id, agentVersion: 5, runtimeDiscovery: { state: "ready", retryable: false }, skills: [{ skill: { skillId: "skill:research", accountId, name: "Evidence research", description: "收集并区分事实与推断。", origin: "account", createdAt: at, updatedAt: at, version: 1 }, attached: true, enabled: true, available: true }] },

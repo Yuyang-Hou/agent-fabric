@@ -180,7 +180,7 @@ describe("Account-scoped product Renderer", () => {
 
   it("refreshes only the active local Runtime and exposes it to Agent creation", async () => {
     render(<AccountProductApp bridge={createAccountProductFixtureBridge("runtimes")} />);
-    expect(screen.getByRole("button", { name: "刷新本机检测" }).hasAttribute("disabled")).toBe(false);
+    await waitFor(() => expect(screen.getByRole("button", { name: "刷新本机检测" }).hasAttribute("disabled")).toBe(false));
     fireEvent.click(screen.getByRole("button", { name: /Nick 的 Mac/u }));
     expect(await screen.findByRole("button", { name: "重新检测" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "智能体" }));

@@ -6,9 +6,13 @@ import WebSocket from "ws";
 import {
   FileCredentialBlobStore,
   LocalAgentBuilder,
+  StubRuntimeAdapter,
   createCodexRuntimeAdapter,
   installAccountAgentMcp,
+  probeLocalRuntimes,
   resolveCodexExecutablePath,
+  type AccountRuntimeProviderConfig,
+  type LocalRuntimeProbeOutcome,
 } from "@agent-fabric/edge-host";
 
 import { DesktopAccountProductAuthentication } from "./account-product/authentication.js";
@@ -45,8 +49,25 @@ let accountSessionServices: AccountProductSessionServices | undefined;
 let accountRuntimeAdapter: ReturnType<typeof createCodexRuntimeAdapter> | undefined;
 let localAgentBuilder: LocalAgentBuilder | undefined;
 let desktopUpdater: DesktopUpdaterController | undefined;
+let cachedLocalRuntimeProbe: LocalRuntimeProbeOutcome | undefined;
+let localRuntimeProbeInFlight: Promise<LocalRuntimeProbeOutcome> | undefined;
+let multicaBinaryPath: string | undefined;
 const hostLifecycle = new DesktopHostLifecycle();
 const ownsSingleInstance = app.requestSingleInstanceLock();
+
+async function runLocalRuntimeProbe(): Promise<LocalRuntimeProbeOutcome> {
+  if (!multicaBinaryPath) return { probeResult: "error", reasonCode: "probe-binary-missing" };
+  if (localRuntimeProbeInFlight) return localRuntimeProbeInFlight;
+  const work = probeLocalRuntimes({ binaryPath: multicaBinaryPath });
+  localRuntimeProbeInFlight = work;
+  try {
+    const outcome = await work;
+    cachedLocalRuntimeProbe = outcome;
+    return outcome;
+  } finally {
+    localRuntimeProbeInFlight = undefined;
+  }
+}
 
 function requireAccountProductHost(): AccountProductHost {
   if (!accountProductHost) throw new Error("account-product-host-unavailable");
@@ -64,6 +85,67 @@ function assertMainRenderer(senderId: number): void {
 
 function diagnostic(message: string): void {
   if (process.env.AGENT_FABRIC_EDGE_DIAGNOSTICS === "1") console.error(message);
+}
+
+/**
+ * Resolves the path to the vendored multica binary used for local runtime
+ * probing. In dev the build script copies it to apps/edge-host/build/multica;
+ * in a packaged app it lives at Resources/edge-host/multica.
+ */
+function resolveMulticaBinaryPath(edgeBuildDir: string): string {
+  return path.join(edgeBuildDir, "multica");
+}
+
+const PROVIDER_LABELS: Record<string, string> = {
+  claude: "Claude Code",
+  codex: "Codex",
+  cursor: "Cursor",
+  openclaw: "Openclaw",
+  opencode: "OpenCode",
+  deveco: "DevEco",
+  hermes: "Hermes",
+  pi: "Pi",
+  copilot: "Copilot",
+  kimi: "Kimi",
+  reasonix: "Reasonix",
+  dsh: "DSH",
+  kiro: "Kiro",
+  codebuddy: "CodeBuddy",
+  antigravity: "Antigravity",
+  qoder: "Qoder",
+  qoderclicn: "Qoder CN",
+  traecli: "Trae CLI",
+  grok: "Grok",
+  qwen: "Qwen",
+  qwenpaw: "QwenPaw",
+  omp: "OMP",
+};
+
+function providerDisplayName(provider: string): string {
+  return PROVIDER_LABELS[provider] ?? provider;
+}
+
+/**
+ * Builds the provider list handed to the local registration service. Codex is
+ * always included with its real adapter so the AI Builder and MCP flows keep
+ * working; every non-Codex provider probed by `multica daemon probe-runtimes`
+ * gets a stub adapter so the runtime list mirrors what multica shows.
+ */
+function assembleRuntimeProviders(codexAdapter: ReturnType<typeof createCodexRuntimeAdapter>, probe: LocalRuntimeProbeOutcome, host: string): readonly AccountRuntimeProviderConfig[] {
+  const providers: AccountRuntimeProviderConfig[] = [
+    { provider: "codex", adapterId: "codex-acp", adapter: codexAdapter, name: `Codex on ${host}` },
+  ];
+  if (probe.probeResult !== "success") return providers;
+  for (const provider of probe.providers) {
+    if (provider === "codex") continue;
+    providers.push({
+      provider,
+      adapterId: `${provider}-stub`,
+      adapter: new StubRuntimeAdapter({ runtimeName: providerDisplayName(provider) }),
+      name: `${providerDisplayName(provider)} on ${host}`,
+    });
+  }
+  return providers;
 }
 
 async function stopLocalServices(): Promise<void> {
@@ -111,6 +193,8 @@ else {
     const packagedServerBaseUrl = typeof __AGENT_FABRIC_PACKAGED_SERVER__ === "string" ? __AGENT_FABRIC_PACKAGED_SERVER__ : undefined;
     serverBaseUrl = resolveServerBaseUrl(process.env.AGENT_FABRIC_SERVER, packagedServerBaseUrl);
     const edgeBuildDirectory = app.isPackaged ? path.join(process.resourcesPath, "edge-host") : path.resolve(currentDirectory, "../../edge-host/build");
+    multicaBinaryPath = resolveMulticaBinaryPath(edgeBuildDirectory);
+    void runLocalRuntimeProbe().then((outcome) => diagnostic(`local-runtime-probe:${outcome.probeResult}`));
     const codexExecutablePath = resolveCodexExecutablePath({ explicitPath: process.env.CODEX_PATH, pathValue: process.env.PATH, homeDirectory: app.getPath("home") });
     accountRuntimeAdapter = createCodexRuntimeAdapter({
       adapterPath: path.join(edgeBuildDirectory, "codex-acp.mjs"),
@@ -131,6 +215,9 @@ else {
         const services = accountSessionServices;
         const adapter = accountRuntimeAdapter;
         if (!services || !adapter || !serverBaseUrl) return;
+        const probeOutcome = await runLocalRuntimeProbe();
+        const providers = assembleRuntimeProviders(adapter, probeOutcome, process.platform);
+        diagnostic(`local-runtime-providers:${providers.map((entry) => entry.provider).join(",")}`);
         const status = await services.start({
           runtime: {
             server: serverBaseUrl,
@@ -138,8 +225,7 @@ else {
             accountId: session.accountId,
             userId: session.userId,
             workspaceRoot: app.isPackaged ? app.getPath("userData") : repositoryRoot,
-            name: `${app.getName()} on ${process.platform}`,
-            adapter,
+            providers,
             privateConfigurationDirectory: path.join(app.getPath("userData"), "account-product", "private-agent-configuration"),
             encryption: {
               encrypt(value) {

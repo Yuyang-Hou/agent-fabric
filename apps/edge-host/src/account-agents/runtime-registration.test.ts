@@ -2,13 +2,18 @@ import { FakeRuntimeAdapter } from "@agent-fabric/runtime-fake";
 import type { AgentRuntime } from "@agent-fabric/account-agent-domain";
 import { describe, expect, it, vi } from "vitest";
 
-import { AccountRuntimeRegistrationService } from "./runtime-registration.js";
+import { AccountRuntimeRegistrationService, type AccountRuntimeProviderConfig } from "./runtime-registration.js";
+import { StubRuntimeAdapter } from "./stub-runtime-adapter.js";
 
 const capabilities = {
   supportsModelSelection: false, supportsThinkingLevel: false, supportsServiceTier: false, supportsSkills: false,
   supportsMcpConfiguration: false, supportsEnvironment: false, supportsCustomArguments: false, supportsRuntimeConfiguration: false,
   supportsCancellation: true, maxConcurrentAgents: 8,
 };
+
+function codexProvider(): AccountRuntimeProviderConfig {
+  return { provider: "codex", adapterId: "codex-acp", adapter: new FakeRuntimeAdapter(), name: "My Mac Codex" };
+}
 
 describe("AccountRuntimeRegistrationService", () => {
   it("registers one detected Codex Runtime and starts its Account execution tunnel", async () => {
@@ -17,12 +22,14 @@ describe("AccountRuntimeRegistrationService", () => {
     const stop = vi.fn().mockResolvedValue(undefined);
     const service = new AccountRuntimeRegistrationService({
       cloud: { listRuntimes: vi.fn().mockResolvedValue([]), registerRuntime, observeRuntime: vi.fn(), refreshRuntime: vi.fn() },
-      adapter: new FakeRuntimeAdapter(), server: "http://127.0.0.1:8787", accountSessionToken: "secret",
-      accountId: "account:one", userId: "human:one", workspaceRoot: "/private/project", name: "My Mac Codex",
+      providers: [codexProvider()], server: "http://127.0.0.1:8787", accountSessionToken: "secret",
+      accountId: "account:one", userId: "human:one", workspaceRoot: "/private/project",
       tunnelFactory: vi.fn().mockReturnValue({ start, stop }),
     });
-    await expect(service.start()).resolves.toMatchObject({ provider: "codex", adapterId: "codex-acp", health: "ready", capabilities: { supportsCancellation: true } });
-    expect(registerRuntime).toHaveBeenCalledWith(expect.objectContaining({ visibility: "private", health: "ready" }));
+    const registered = await service.start();
+    expect(registered).toHaveLength(1);
+    expect(registered[0]).toMatchObject({ provider: "codex", adapterId: "codex-acp", health: "ready", capabilities: { supportsCancellation: true } });
+    expect(registerRuntime).toHaveBeenCalledWith(expect.objectContaining({ visibility: "private", health: "ready", provider: "codex" }));
     expect(start).toHaveBeenCalledOnce();
     await service.stop();
     expect(stop).toHaveBeenCalledOnce();
@@ -35,8 +42,8 @@ describe("AccountRuntimeRegistrationService", () => {
       .mockResolvedValueOnce(runtime({ health: "offline", version: 6 }));
     const service = new AccountRuntimeRegistrationService({
       cloud: { listRuntimes: vi.fn().mockResolvedValue([runtime({ runtimeId: "runtime:other", ownerUserId: "human:other" }), existing]), registerRuntime: vi.fn(), observeRuntime, refreshRuntime: vi.fn() },
-      adapter: new FakeRuntimeAdapter(), server: "http://127.0.0.1:8787", accountSessionToken: "secret",
-      accountId: "account:one", userId: "human:one", workspaceRoot: "/private/project", name: "My Mac Codex",
+      providers: [codexProvider()], server: "http://127.0.0.1:8787", accountSessionToken: "secret",
+      accountId: "account:one", userId: "human:one", workspaceRoot: "/private/project",
       tunnelFactory: vi.fn().mockReturnValue({ start: vi.fn().mockRejectedValue(new Error("network-down")), stop: vi.fn() }),
     });
     await expect(service.start()).rejects.toThrow("network-down");
@@ -54,8 +61,9 @@ describe("AccountRuntimeRegistrationService", () => {
     const refreshRuntime = vi.fn().mockResolvedValue(runtime({ version: 3, health: "checking" }));
     const service = new AccountRuntimeRegistrationService({
       cloud: { listRuntimes: vi.fn().mockResolvedValue([existing]), registerRuntime: vi.fn(), observeRuntime, refreshRuntime },
-      adapter, server: "http://127.0.0.1:8787", accountSessionToken: "secret",
-      accountId: "account:one", userId: "human:one", workspaceRoot: "/private/project", name: "My Mac Codex",
+      providers: [{ provider: "codex", adapterId: "codex-acp", adapter, name: "My Mac Codex" }],
+      server: "http://127.0.0.1:8787", accountSessionToken: "secret",
+      accountId: "account:one", userId: "human:one", workspaceRoot: "/private/project",
       tunnelFactory: vi.fn().mockReturnValue({ start: vi.fn().mockResolvedValue(undefined), stop: vi.fn() }),
     });
     await service.start();
@@ -73,8 +81,8 @@ describe("AccountRuntimeRegistrationService", () => {
     const refreshRuntime = vi.fn();
     const service = new AccountRuntimeRegistrationService({
       cloud: { listRuntimes: vi.fn().mockResolvedValue([existing]), registerRuntime: vi.fn(), observeRuntime: vi.fn().mockResolvedValue(runtime({ version: 2 })), refreshRuntime },
-      adapter: new FakeRuntimeAdapter(), server: "http://127.0.0.1:8787", accountSessionToken: "secret",
-      accountId: "account:one", userId: "human:one", workspaceRoot: "/private/project", name: "My Mac Codex",
+      providers: [codexProvider()], server: "http://127.0.0.1:8787", accountSessionToken: "secret",
+      accountId: "account:one", userId: "human:one", workspaceRoot: "/private/project",
       tunnelFactory: vi.fn().mockReturnValue({ start: vi.fn().mockResolvedValue(undefined), stop: vi.fn() }),
     });
     await service.start();
@@ -87,12 +95,50 @@ describe("AccountRuntimeRegistrationService", () => {
     const observeRuntime = vi.fn().mockResolvedValue(runtime({ health: "ready", version: 8 }));
     const service = new AccountRuntimeRegistrationService({
       cloud: { listRuntimes: vi.fn().mockResolvedValue([existing]), registerRuntime: vi.fn(), observeRuntime, refreshRuntime: vi.fn() },
-      adapter: new FakeRuntimeAdapter(), server: "http://127.0.0.1:8787", accountSessionToken: "secret",
-      accountId: "account:one", userId: "human:one", workspaceRoot: "/private/project", name: "My Mac Codex",
+      providers: [codexProvider()], server: "http://127.0.0.1:8787", accountSessionToken: "secret",
+      accountId: "account:one", userId: "human:one", workspaceRoot: "/private/project",
       tunnelFactory: vi.fn().mockReturnValue({ start: vi.fn().mockResolvedValue(undefined), stop: vi.fn() }),
     });
-    await expect(service.start()).resolves.toMatchObject({ health: "ready", version: 8 });
+    const registered = await service.start();
+    expect(registered).toHaveLength(1);
+    expect(registered[0]).toMatchObject({ health: "ready", version: 8 });
     expect(observeRuntime).toHaveBeenCalledWith(existing.runtimeId, expect.objectContaining({ health: "ready", expectedVersion: 7 }));
+  });
+
+  it("registers each detected provider as its own Runtime with its own tunnel", async () => {
+    let counter = 0;
+    const registerRuntime = vi.fn().mockImplementation(async (input) => {
+      counter += 1;
+      return runtime({ ...input, runtimeId: `runtime:${input.provider}`, version: 1 });
+    });
+    const claudeStart = vi.fn().mockResolvedValue(undefined);
+    const cursorStart = vi.fn().mockResolvedValue(undefined);
+    const tunnelFactory = vi.fn()
+      .mockReturnValueOnce({ start: claudeStart, stop: vi.fn() })
+      .mockReturnValueOnce({ start: cursorStart, stop: vi.fn() });
+    const service = new AccountRuntimeRegistrationService({
+      cloud: { listRuntimes: vi.fn().mockResolvedValue([]), registerRuntime, observeRuntime: vi.fn(), refreshRuntime: vi.fn() },
+      providers: [
+        { provider: "claude", adapterId: "claude-stub", adapter: new StubRuntimeAdapter({ runtimeName: "Claude Code" }), name: "Claude on this Mac" },
+        { provider: "cursor", adapterId: "cursor-stub", adapter: new StubRuntimeAdapter({ runtimeName: "Cursor" }), name: "Cursor on this Mac" },
+      ],
+      server: "http://127.0.0.1:8787", accountSessionToken: "secret",
+      accountId: "account:one", userId: "human:one", workspaceRoot: "/private/project",
+      tunnelFactory,
+    });
+    const registered = await service.start();
+    expect(registered.map((entry) => entry.provider)).toEqual(["claude", "cursor"]);
+    expect(counter).toBe(2);
+    expect(claudeStart).toHaveBeenCalledOnce();
+    expect(cursorStart).toHaveBeenCalledOnce();
+  });
+
+  it("rejects construction without providers", () => {
+    expect(() => new AccountRuntimeRegistrationService({
+      cloud: { listRuntimes: vi.fn(), registerRuntime: vi.fn(), observeRuntime: vi.fn(), refreshRuntime: vi.fn() },
+      providers: [], server: "http://127.0.0.1:8787", accountSessionToken: "secret",
+      accountId: "account:one", userId: "human:one", workspaceRoot: "/private/project",
+    })).toThrow("account-runtime-registration-providers-required");
   });
 });
 

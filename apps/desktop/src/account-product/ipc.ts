@@ -24,10 +24,15 @@ import {
 import { z } from "zod";
 
 const identifier = z.string().trim().min(1).max(191);
+const providerIdentifier = z.string().regex(/^[a-z0-9][a-z0-9_-]{0,63}$/);
 const localServiceStateSchema = z.strictObject({
   state: z.enum(["inactive", "ready", "failed"]),
   runtimeId: identifier.optional(),
   errorCode: identifier.optional(),
+});
+const localRuntimeEntrySchema = z.strictObject({
+  runtimeId: identifier,
+  provider: providerIdentifier,
 });
 const safeSignedInSessionSchema = z.strictObject({
   state: z.literal("signed-in"),
@@ -92,7 +97,7 @@ export const accountProductRendererSnapshotSchema = z.strictObject({
   ]),
   route: routeSchema,
   connection: z.enum(["online", "reconnecting", "offline"]),
-  localServices: z.strictObject({ runtime: localServiceStateSchema, mcp: localServiceStateSchema }),
+  localServices: z.strictObject({ runtimes: z.array(localRuntimeEntrySchema).max(50), runtime: localServiceStateSchema, mcp: localServiceStateSchema }),
   catalog: agentCatalogPageSchema.optional(),
   detail: agentDetailProjectionSchema.optional(),
   activities: z.array(agentActivitySchema).max(500),
@@ -137,6 +142,8 @@ export const accountProductRendererCommandSchema = z.discriminatedUnion("type", 
   z.strictObject({ type: z.literal("runtime-open"), runtimeId: identifier }),
   z.strictObject({ type: z.literal("runtime-update"), runtimeId: identifier, name: z.string().trim().min(1).max(120), visibility: runtimeVisibilitySchema, expectedVersion: z.number().int().positive() }),
   z.strictObject({ type: z.literal("runtime-refresh"), runtimeId: identifier, expectedVersion: z.number().int().positive() }),
+  z.strictObject({ type: z.literal("local-runtimes-refresh") }),
+  z.strictObject({ type: z.literal("local-runtimes-refresh-all") }),
   z.strictObject({ type: z.literal("runtime-delete-plan"), runtimeId: identifier }),
   z.strictObject({ type: z.literal("runtime-delete-confirm"), runtimeId: identifier, confirmation: confirmRuntimeDeletionRequestSchema }),
   z.strictObject({ type: z.literal("friend-invite"), invitation: createFriendInvitationRequestSchema }),

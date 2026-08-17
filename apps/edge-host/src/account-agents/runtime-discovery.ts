@@ -2,8 +2,8 @@ import { runtimeCapabilitiesSchema, runtimeHealthSchema, type RuntimeCapabilitie
 import type { RuntimeAdapter, RuntimeCapabilities as AdapterCapabilities, RuntimeDetection } from "@agent-fabric/runtime-contract";
 
 export interface AccountRuntimeObservation {
-  readonly provider: "codex";
-  readonly adapterId: "codex-acp";
+  readonly provider: string;
+  readonly adapterId: string;
   readonly health: RuntimeHealth;
   readonly capabilities: RuntimeCapabilities;
   readonly runtimeSkills: readonly RuntimeSkillSummary[];
@@ -11,14 +11,21 @@ export interface AccountRuntimeObservation {
   readonly reasonCode?: string;
 }
 
-export async function discoverCodexAccountRuntime(adapter: RuntimeAdapter, observedAt = new Date().toISOString(), timeoutMs = 10_000): Promise<AccountRuntimeObservation> {
+/**
+ * Detects the current state of a locally-hosted account runtime by driving
+ * its `RuntimeAdapter` — one detect() plus (if ready) a capability inspection.
+ * The provider/adapterId are recorded on the observation so callers can tell
+ * multiple providers apart on a shared code path (multi-runtime registration,
+ * per-runtime tunnel heartbeats).
+ */
+export async function discoverAccountRuntime(adapter: RuntimeAdapter, provider: string, adapterId: string, observedAt = new Date().toISOString(), timeoutMs = 10_000): Promise<AccountRuntimeObservation> {
   try {
     const detection = await withTimeout(adapter.detect(), timeoutMs);
     const health = healthFromDetection(detection);
     const capabilities = detection.status === "ready" ? capabilitiesFromAdapter(await withTimeout(adapter.inspectCapabilities(), timeoutMs)) : unavailableCapabilities();
     return Object.freeze({
-      provider: "codex",
-      adapterId: "codex-acp",
+      provider,
+      adapterId,
       health,
       capabilities,
       runtimeSkills: [],
@@ -26,8 +33,13 @@ export async function discoverCodexAccountRuntime(adapter: RuntimeAdapter, obser
       ...(detection.status === "ready" ? {} : { reasonCode: detection.reasonCode }),
     });
   } catch {
-    return Object.freeze({ provider: "codex", adapterId: "codex-acp", health: "offline", capabilities: unavailableCapabilities(), runtimeSkills: [], observedAt, reasonCode: "runtime-detection-failed" });
+    return Object.freeze({ provider, adapterId, health: "offline", capabilities: unavailableCapabilities(), runtimeSkills: [], observedAt, reasonCode: "runtime-detection-failed" });
   }
+}
+
+/** @deprecated Prefer `discoverAccountRuntime`. Retained for callers that still pin the Codex ACP identity. */
+export function discoverCodexAccountRuntime(adapter: RuntimeAdapter, observedAt = new Date().toISOString(), timeoutMs = 10_000): Promise<AccountRuntimeObservation> {
+  return discoverAccountRuntime(adapter, "codex", "codex-acp", observedAt, timeoutMs);
 }
 
 function withTimeout<T>(work: Promise<T>, timeoutMs: number): Promise<T> {

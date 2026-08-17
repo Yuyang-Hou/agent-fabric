@@ -29,7 +29,7 @@ function authenticated() {
   const value: AccountProductAuthenticatedSession = {
     client,
     accountName: "Owner Account",
-    localServices: { runtime: { state: "ready", runtimeId: "runtime:one" }, mcp: { state: "ready" } },
+    localServices: { runtimes: [{ runtimeId: "runtime:one", provider: "codex" }], runtime: { state: "ready", runtimeId: "runtime:one" }, mcp: { state: "ready" } },
     session: {
       sessionId: "session:one", credentialId: "credential:secret", accountId: "account:one", userId: "human:owner",
       displayName: "Owner", email: "owner@example.com", createdAt: at,

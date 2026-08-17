@@ -30,10 +30,26 @@ await Promise.all([
   }),
 ]);
 
+const multicaBinary = path.join(desktop, "vendor", `multica-${process.platform}-${process.arch}`, "multica");
+
 await Promise.all([
   fs.copyFile(codexAcpPath, path.join(edgeOutput, "codex-acp.mjs")),
   fs.copyFile(path.join(root, "docs", "supply-chain", "THIRD_PARTY_NOTICES.md"), path.join(output, "THIRD_PARTY_NOTICES.md")),
   fs.copyFile(path.join(root, "docs", "supply-chain", "sbom.cdx.json"), path.join(output, "sbom.cdx.json")),
+  copyMulticaBinary(multicaBinary, path.join(edgeOutput, "multica")),
 ]);
 
 console.log(`desktop-build: ${output}`);
+
+async function copyMulticaBinary(source, destination) {
+  try {
+    await fs.copyFile(source, destination);
+    await fs.chmod(destination, 0o755);
+  } catch (error) {
+    if (error?.code === "ENOENT") {
+      console.warn(`desktop-build: multica binary missing for ${process.platform}-${process.arch}; local runtime probe will be unavailable`);
+      return;
+    }
+    throw error;
+  }
+}

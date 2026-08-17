@@ -303,6 +303,22 @@ export class AccountProductHost {
           const runtime = await refresh(command.runtimeId, command.expectedVersion);
           return snapshotResult(this.#replace({ ...this.#snapshot, runtimeDetail: runtime, runtimes: upsert(this.#snapshot.runtimes, runtime, "runtimeId"), refreshing: false }));
         }
+        case "local-runtimes-refresh":
+        case "local-runtimes-refresh-all": {
+          const refresh = this.options?.refreshLocalRuntime;
+          if (!refresh) throw new AccountProductHostError("runtime-refresh-not-local");
+          const local = new Set(this.#snapshot.localServices.runtimes.map((entry) => entry.runtimeId));
+          const targets = this.#snapshot.runtimes.filter((entry) => local.has(entry.runtimeId));
+          const results = await Promise.allSettled(targets.map((entry) => refresh(entry.runtimeId, entry.version)));
+          let runtimes = this.#snapshot.runtimes;
+          for (const [index, outcome] of results.entries()) {
+            const target = targets[index];
+            if (outcome.status === "fulfilled" && target) runtimes = upsert(runtimes, outcome.value, "runtimeId");
+          }
+          const failure = results.find((entry) => entry.status === "rejected");
+          if (failure && failure.status === "rejected") throw new AccountProductHostError(safeErrorCode(failure.reason));
+          return snapshotResult(this.#replace({ ...this.#snapshot, runtimes, refreshing: false }));
+        }
         case "runtime-delete-plan":
           return snapshotResult(this.#replace({ ...this.#snapshot, runtimeDeletionImpact: await client.planAccountRuntimeDeletion(command.runtimeId), refreshing: false }));
         case "runtime-delete-confirm":
@@ -652,7 +668,7 @@ function signedOutSnapshot(reason: "initial" | "logged_out" | "expired" | "revok
 }
 
 function inactiveLocalServices(): AccountProductRendererSnapshot["localServices"] {
-  return { runtime: { state: "inactive" }, mcp: { state: "inactive" } };
+  return { runtimes: [], runtime: { state: "inactive" }, mcp: { state: "inactive" } };
 }
 
 function snapshotResult(snapshot: AccountProductRendererSnapshot): AccountProductRendererCommandResult {

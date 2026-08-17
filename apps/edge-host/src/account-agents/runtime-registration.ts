@@ -1,7 +1,7 @@
 import type { AgentRuntime } from "@agent-fabric/account-agent-domain";
 import type { RuntimeAdapter } from "@agent-fabric/runtime-contract";
 
-import { discoverCodexAccountRuntime } from "./runtime-discovery.js";
+import { discoverAccountRuntime } from "./runtime-discovery.js";
 import { AccountRuntimeTunnelClient, type AccountRuntimeTunnelClientOptions } from "./runtime-tunnel-client.js";
 
 export interface AccountRuntimeRegistrationCloudPort {
@@ -22,96 +22,138 @@ export interface AccountRuntimeRegistrationCloudPort {
   refreshRuntime(runtimeId: string, expectedVersion: number): Promise<AgentRuntime>;
 }
 
+export interface AccountRuntimeProviderConfig {
+  readonly provider: string;
+  readonly adapterId: string;
+  readonly adapter: RuntimeAdapter;
+  readonly name: string;
+  readonly visibility?: AgentRuntime["visibility"];
+}
+
 export interface AccountRuntimeRegistrationOptions {
   readonly cloud: AccountRuntimeRegistrationCloudPort;
-  readonly adapter: RuntimeAdapter;
+  readonly providers: readonly AccountRuntimeProviderConfig[];
   readonly server: string;
   readonly accountSessionToken: string;
   readonly accountId: string;
   readonly userId: string;
   readonly workspaceRoot: string;
-  readonly name: string;
-  readonly visibility?: AgentRuntime["visibility"];
   readonly privateConfigurationStore?: AccountRuntimeTunnelClientOptions["privateConfigurationStore"];
   readonly tunnelFactory?: (options: AccountRuntimeTunnelClientOptions) => Pick<AccountRuntimeTunnelClient, "start" | "stop">;
   readonly detectionTimeoutMs?: number;
 }
 
-/** Owns one authenticated Account Runtime registration and its execution tunnel. */
+interface Registered {
+  readonly config: AccountRuntimeProviderConfig;
+  runtime: AgentRuntime;
+  tunnel: Pick<AccountRuntimeTunnelClient, "start" | "stop">;
+}
+
+/**
+ * Owns N authenticated Account Runtime registrations — one per detected
+ * provider — and the WebSocket tunnels that back them. Each provider gets its
+ * own registration + tunnel; the map is keyed by the cloud-assigned runtimeId
+ * so refresh() can route to a single adapter's `discoverAccountRuntime()`
+ * without pulling every other provider's health through the same pipe.
+ */
 export class AccountRuntimeRegistrationService {
-  #tunnel: Pick<AccountRuntimeTunnelClient, "start" | "stop"> | undefined;
-  #runtime: AgentRuntime | undefined;
-  #refreshing: Promise<AgentRuntime> | undefined;
+  #registrations = new Map<string, Registered>();
+  #refreshing = new Map<string, Promise<AgentRuntime>>();
+  #starting: Promise<readonly AgentRuntime[]> | undefined;
 
-  constructor(readonly options: AccountRuntimeRegistrationOptions) {}
+  constructor(readonly options: AccountRuntimeRegistrationOptions) {
+    if (!options.providers.length) throw new Error("account-runtime-registration-providers-required");
+  }
 
-  get runtime(): AgentRuntime | undefined { return this.#runtime; }
+  get runtimes(): readonly AgentRuntime[] {
+    return [...this.#registrations.values()].map((entry) => entry.runtime);
+  }
 
-  async start(): Promise<AgentRuntime> {
-    if (this.#tunnel) throw new Error("account-runtime-registration-already-started");
-    const observation = await discoverCodexAccountRuntime(this.options.adapter, new Date().toISOString(), this.options.detectionTimeoutMs);
-    const runtimes = await this.options.cloud.listRuntimes();
-    const matching = runtimes
-      .filter((runtime) => runtime.accountId === this.options.accountId && runtime.ownerUserId === this.options.userId && runtime.provider === observation.provider && runtime.adapterId === observation.adapterId)
-      .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt) || right.runtimeId.localeCompare(left.runtimeId))[0];
-    let runtime = matching
-      ? await this.options.cloud.observeRuntime(matching.runtimeId, { health: observation.health, capabilities: observation.capabilities, expectedVersion: matching.version })
-      : await this.options.cloud.registerRuntime({
-          provider: observation.provider,
-          adapterId: observation.adapterId,
-          name: this.options.name,
-          visibility: this.options.visibility ?? "private",
-          health: observation.health,
-          capabilities: observation.capabilities,
-        });
-    const createTunnel = this.options.tunnelFactory ?? ((options) => new AccountRuntimeTunnelClient(options));
-    const tunnel = createTunnel({
-      server: this.options.server,
-      accountSessionToken: this.options.accountSessionToken,
-      runtimeId: runtime.runtimeId,
-      workspaceRoot: this.options.workspaceRoot,
-      adapter: this.options.adapter,
-      ...(this.options.privateConfigurationStore ? { privateConfigurationStore: this.options.privateConfigurationStore } : {}),
-    });
+  async start(): Promise<readonly AgentRuntime[]> {
+    if (this.#registrations.size > 0) throw new Error("account-runtime-registration-already-started");
+    if (this.#starting) return this.#starting;
+    const work = this.#start();
+    this.#starting = work;
+    try { return await work; }
+    finally { this.#starting = undefined; }
+  }
+
+  async #start(): Promise<readonly AgentRuntime[]> {
+    const existing = await this.options.cloud.listRuntimes();
+    const started: Registered[] = [];
     try {
-      await tunnel.start();
+      for (const config of this.options.providers) {
+        const observation = await discoverAccountRuntime(config.adapter, config.provider, config.adapterId, new Date().toISOString(), this.options.detectionTimeoutMs);
+        const matching = existing
+          .filter((runtime) => runtime.accountId === this.options.accountId && runtime.ownerUserId === this.options.userId && runtime.provider === config.provider && runtime.adapterId === config.adapterId)
+          .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt) || right.runtimeId.localeCompare(left.runtimeId))[0];
+        let runtime = matching
+          ? await this.options.cloud.observeRuntime(matching.runtimeId, { health: observation.health, capabilities: observation.capabilities, expectedVersion: matching.version })
+          : await this.options.cloud.registerRuntime({
+              provider: config.provider,
+              adapterId: config.adapterId,
+              name: config.name,
+              visibility: config.visibility ?? "private",
+              health: observation.health,
+              capabilities: observation.capabilities,
+            });
+        const createTunnel = this.options.tunnelFactory ?? ((options) => new AccountRuntimeTunnelClient(options));
+        const tunnel = createTunnel({
+          server: this.options.server,
+          accountSessionToken: this.options.accountSessionToken,
+          runtimeId: runtime.runtimeId,
+          workspaceRoot: this.options.workspaceRoot,
+          adapter: config.adapter,
+          provider: config.provider,
+          adapterId: config.adapterId,
+          ...(this.options.privateConfigurationStore ? { privateConfigurationStore: this.options.privateConfigurationStore } : {}),
+        });
+        try {
+          await tunnel.start();
+        } catch (error) {
+          runtime = await this.options.cloud.observeRuntime(runtime.runtimeId, { health: "offline", capabilities: runtime.capabilities, expectedVersion: runtime.version }).catch(() => runtime);
+          throw error;
+        }
+        const entry: Registered = { config, runtime, tunnel };
+        this.#registrations.set(runtime.runtimeId, entry);
+        started.push(entry);
+      }
+      return started.map((entry) => entry.runtime);
     } catch (error) {
-      runtime = await this.options.cloud.observeRuntime(runtime.runtimeId, { health: "offline", capabilities: runtime.capabilities, expectedVersion: runtime.version }).catch(() => runtime);
+      await Promise.allSettled(started.map((entry) => entry.tunnel.stop()));
+      for (const entry of started) this.#registrations.delete(entry.runtime.runtimeId);
       throw error;
     }
-    this.#runtime = runtime;
-    this.#tunnel = tunnel;
-    return runtime;
   }
 
   refresh(runtimeId: string, expectedVersion: number): Promise<AgentRuntime> {
-    const runtime = this.#runtime;
-    if (!runtime || runtime.runtimeId !== runtimeId) return Promise.reject(new Error("runtime-refresh-not-local"));
-    if (this.#refreshing) return this.#refreshing;
-    const work = this.#refresh(runtimeId, expectedVersion);
-    this.#refreshing = work;
-    void work.finally(() => { if (this.#refreshing === work) this.#refreshing = undefined; }).catch(() => undefined);
+    const entry = this.#registrations.get(runtimeId);
+    if (!entry) return Promise.reject(new Error("runtime-refresh-not-local"));
+    const pending = this.#refreshing.get(runtimeId);
+    if (pending) return pending;
+    const work = this.#refresh(entry, expectedVersion);
+    this.#refreshing.set(runtimeId, work);
+    void work.finally(() => { if (this.#refreshing.get(runtimeId) === work) this.#refreshing.delete(runtimeId); }).catch(() => undefined);
     return work;
   }
 
-  async #refresh(runtimeId: string, expectedVersion: number): Promise<AgentRuntime> {
-    const checking = await this.options.cloud.refreshRuntime(runtimeId, expectedVersion);
-    this.#runtime = checking;
-    const observation = await discoverCodexAccountRuntime(this.options.adapter, new Date().toISOString(), this.options.detectionTimeoutMs);
-    const terminal = await this.options.cloud.observeRuntime(runtimeId, {
+  async #refresh(entry: Registered, expectedVersion: number): Promise<AgentRuntime> {
+    const checking = await this.options.cloud.refreshRuntime(entry.runtime.runtimeId, expectedVersion);
+    entry.runtime = checking;
+    const observation = await discoverAccountRuntime(entry.config.adapter, entry.config.provider, entry.config.adapterId, new Date().toISOString(), this.options.detectionTimeoutMs);
+    const terminal = await this.options.cloud.observeRuntime(entry.runtime.runtimeId, {
       health: observation.health,
       capabilities: observation.capabilities,
       expectedVersion: checking.version,
     });
-    this.#runtime = terminal;
+    entry.runtime = terminal;
     return terminal;
   }
 
   async stop(): Promise<void> {
-    const tunnel = this.#tunnel;
-    this.#tunnel = undefined;
-    this.#runtime = undefined;
-    this.#refreshing = undefined;
-    await tunnel?.stop();
+    const entries = [...this.#registrations.values()];
+    this.#registrations.clear();
+    this.#refreshing.clear();
+    await Promise.allSettled(entries.map((entry) => entry.tunnel.stop()));
   }
 }

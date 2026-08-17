@@ -4,7 +4,7 @@ import type { RuntimeAdapter } from "@agent-fabric/runtime-contract";
 import { WebSocket, type ClientOptions } from "ws";
 
 import { AccountAgentRuntimeExecutor } from "./runtime-executor.js";
-import { discoverCodexAccountRuntime } from "./runtime-discovery.js";
+import { discoverAccountRuntime } from "./runtime-discovery.js";
 import type { AccountAgentPrivateConfigurationStore } from "./private-configuration.js";
 
 export interface AccountRuntimeTunnelClientOptions {
@@ -13,6 +13,13 @@ export interface AccountRuntimeTunnelClientOptions {
   readonly runtimeId: string;
   readonly workspaceRoot: string;
   readonly adapter: RuntimeAdapter;
+  /**
+   * Identity fields used to tag heartbeats for the specific provider being
+   * driven by this tunnel. Defaults keep back-compat with older callers that
+   * always drove Codex over ACP.
+   */
+  readonly provider?: string;
+  readonly adapterId?: string;
   readonly privateConfigurationStore?: AccountAgentPrivateConfigurationStore;
   readonly socketFactory?: (url: URL, options: ClientOptions) => WebSocket;
   readonly heartbeatMs?: number;
@@ -108,7 +115,7 @@ export class AccountRuntimeTunnelClient {
   }
 
   async #heartbeatNow(): Promise<void> {
-    const observation = await discoverCodexAccountRuntime(this.options.adapter);
+    const observation = await discoverAccountRuntime(this.options.adapter, this.options.provider ?? "codex", this.options.adapterId ?? "codex-acp");
     const health: RuntimeHealth = observation.health;
     this.#send(accountRuntimeClientEnvelopeSchema.parse({ version: "1", type: "heartbeat", runtimeId: this.options.runtimeId, health, capabilities: observation.capabilities, runtimeSkills: observation.runtimeSkills, observedAt: observation.observedAt }));
   }

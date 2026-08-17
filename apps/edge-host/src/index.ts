@@ -11,9 +11,21 @@ export {
 export { createCodexRuntimeAdapter } from "./account-agents/codex-runtime-adapter.js";
 export { resolveCodexExecutablePath } from "./account-agents/codex-executable.js";
 export {
+  discoverAccountRuntime,
   discoverCodexAccountRuntime,
   type AccountRuntimeObservation,
 } from "./account-agents/runtime-discovery.js";
+export {
+  probeLocalRuntimes,
+  type LocalRuntimeProbeOutcome,
+  type LocalRuntimeProbeResult,
+  type LocalRuntimeProbeError,
+  type ProbeLocalRuntimesOptions,
+} from "./account-agents/local-runtime-probe.js";
+export {
+  StubRuntimeAdapter,
+  type StubRuntimeAdapterOptions,
+} from "./account-agents/stub-runtime-adapter.js";
 export {
   AccountAgentMcpLoopback,
   type AccountAgentGatewayPort,
@@ -38,6 +50,7 @@ export {
 } from "./account-agents/runtime-tunnel-client.js";
 export {
   AccountRuntimeRegistrationService,
+  type AccountRuntimeProviderConfig,
   type AccountRuntimeRegistrationCloudPort,
   type AccountRuntimeRegistrationOptions,
 } from "./account-agents/runtime-registration.js";

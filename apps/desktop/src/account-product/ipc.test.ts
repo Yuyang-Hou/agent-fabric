@@ -8,7 +8,7 @@ describe("Account product Renderer IPC", () => {
   it("keeps Account collection snapshots free of private Agent and credential fields", () => {
     const snapshot = accountProductRendererSnapshotSchema.parse({
       session: { state: "signed-in", accountId: "account:one", accountName: "My Account", userId: "human:owner", displayName: "Owner", email: "owner@example.com", expiresAt: "2026-09-13T00:00:00.000Z" },
-      route: { name: "agents" }, connection: "online", localServices: { runtime: { state: "ready" }, mcp: { state: "ready" } }, loading: false, refreshing: false,
+      route: { name: "agents" }, connection: "online", localServices: { runtimes: [], runtime: { state: "ready" }, mcp: { state: "ready" } }, loading: false, refreshing: false,
       runtimes: [], activities: [], templates: [], friends: [], incomingFriendInvitations: [], outgoingFriendInvitations: [], legacyRecovery: { state: "not_required" },
       catalog: { accountId: "account:one", scope: "mine", rows: [{ agent: { agentId: "agent:one", accountId: "account:one", ownerUserId: "human:owner", name: "Research", description: "", permissionMode: "private", createdAt: at, updatedAt: at, version: 1 }, owner: { userId: "human:owner", displayName: "Owner", email: "owner@example.com" }, effectiveAccess: "owner", status: "needs_runtime" }], counts: { mine: 1, friends: 0, archived: 0 } },
     });
@@ -33,7 +33,7 @@ describe("Account product Renderer IPC", () => {
   it("keeps sensitive recovery output bounded to field categories and backup identity", () => {
     const base = {
       session: { state: "signed-out" as const }, route: { name: "agents" as const }, connection: "offline" as const,
-      localServices: { runtime: { state: "inactive" as const }, mcp: { state: "inactive" as const } },
+      localServices: { runtimes: [], runtime: { state: "inactive" as const }, mcp: { state: "inactive" as const } },
       loading: false, refreshing: false, activities: [], templates: [], runtimes: [], friends: [], incomingFriendInvitations: [], outgoingFriendInvitations: [],
     };
     expect(accountProductRendererSnapshotSchema.parse({
@@ -49,7 +49,7 @@ describe("Account product Renderer IPC", () => {
   it("keeps friend invitations token-free in both snapshots and command results", () => {
     const snapshot = accountProductRendererSnapshotSchema.parse({
       session: { state: "signed-out" }, route: { name: "friends" }, connection: "offline", loading: false, refreshing: false,
-      localServices: { runtime: { state: "inactive" }, mcp: { state: "inactive" } },
+      localServices: { runtimes: [], runtime: { state: "inactive" }, mcp: { state: "inactive" } },
       activities: [], templates: [], runtimes: [], friends: [], incomingFriendInvitations: [], outgoingFriendInvitations: [], legacyRecovery: { state: "not_required" },
     });
     const invitation = { direction: "outgoing", invitation: { invitationId: "friend-invitation:one", inviterUserId: "human:owner", recipientEmail: "friend@example.com", status: "pending", createdAt: at, expiresAt: "2026-08-20T00:00:00.000Z", version: 1 } } as const;
