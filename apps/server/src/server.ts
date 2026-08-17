@@ -9,10 +9,9 @@ import { createServer, type Server as HttpServer } from "node:http";
 import { WebSocketServer } from "ws";
 
 import { AccountAgentA2ARegistry, type AccountAgentExecutionPort } from "./account-agent-a2a.js";
-import { runAccountAgentBuilderTurn } from "./account-agent-builder.js";
 import { AccountInvalidationHub } from "./account-invalidation.js";
 import { AccountRuntimeTunnelRegistry } from "./account-runtime-tunnel.js";
-import { createPersistenceStore, requireAccountAgentA2APersistence, requireAccountAgentCreationPersistence, requireAccountAgentManagementPersistence, requireAccountAuthenticationPersistence, requireHumanFriendshipManagementPersistence, requireAccountMigrationRecoveryPersistence, requireAccountProductBootstrapPersistence, requireAccountRuntimeConnectionPersistence, requireAccountRuntimeManagementPersistence, requireAccountRuntimeObservationPersistence, requireAccountSelfTestPersistence, type PersistenceStore } from "./persistence-store.js";
+import { createPersistenceStore, requireAccountAgentA2APersistence, requireAccountAgentManagementPersistence, requireAccountAuthenticationPersistence, requireHumanFriendshipManagementPersistence, requireAccountMigrationRecoveryPersistence, requireAccountProductBootstrapPersistence, requireAccountRuntimeConnectionPersistence, requireAccountRuntimeManagementPersistence, requireAccountRuntimeObservationPersistence, requireAccountSelfTestPersistence, type PersistenceStore } from "./persistence-store.js";
 import { digestBase64Url, digestHex, GoogleOidcProvider, type OidcProvider } from "./google-oidc.js";
 import type { ServerConfig } from "./server-config.js";
 
@@ -85,46 +84,6 @@ export function createAgentFabricServer(config: ServerConfig, options: {
   app.get("/v1/agent-templates", requireAnyScope(store, config, ["account:access"]), (_request, response) => {
     response.json({ templates: approvedAgentTemplates });
   });
-
-  app.post("/v1/agent-drafts", requireAnyScope(store, config, ["account:access"]), asyncRoute(async (request, response) => {
-    response.status(201).json(await requireAccountAgentCreationPersistence(store).createAccountAgentDraftForCredential(requirePrincipal(request).credentialId, request.body));
-  }));
-
-  app.get("/v1/agent-drafts", requireAnyScope(store, config, ["account:access"]), asyncRoute(async (request, response) => {
-    const page = await requireAccountAgentCreationPersistence(store).listAccountAgentDraftsForCredential(requirePrincipal(request).credentialId, accountPageRequest(request));
-    response.json({ drafts: page.items, ...(page.nextCursor ? { nextCursor: Buffer.from(JSON.stringify(page.nextCursor), "utf8").toString("base64url") } : {}) });
-  }));
-
-  app.get("/v1/agent-drafts/:draftId", requireAnyScope(store, config, ["account:access"]), asyncRoute(async (request, response) => {
-    response.json(await requireAccountAgentCreationPersistence(store).getAccountAgentDraftForCredential(requirePrincipal(request).credentialId, routeParameter(request.params.draftId)));
-  }));
-
-  app.put("/v1/agent-drafts/:draftId", requireAnyScope(store, config, ["account:access"]), asyncRoute(async (request, response) => {
-    response.json(await requireAccountAgentCreationPersistence(store).saveAccountAgentDraftForCredential(requirePrincipal(request).credentialId, routeParameter(request.params.draftId), request.body));
-  }));
-
-  app.post("/v1/agent-drafts/:draftId/validate", requireAnyScope(store, config, ["account:access"]), asyncRoute(async (request, response) => {
-    exactObjectBody(request.body, []);
-    response.json(await requireAccountAgentCreationPersistence(store).validateAccountAgentDraftForCredential(requirePrincipal(request).credentialId, routeParameter(request.params.draftId)));
-  }));
-
-  app.post("/v1/agent-drafts/:draftId/builder-turns", requireAnyScope(store, config, ["account:access"]), asyncRoute(async (request, response) => {
-    const body = exactObjectBody(request.body, ["text", "expectedVersion"]);
-    response.json(await runAccountAgentBuilderTurn({
-      persistence: requireAccountAgentCreationPersistence(store), execution: accountAgentExecution,
-      credentialId: requirePrincipal(request).credentialId, draftId: routeParameter(request.params.draftId),
-      text: stringBody(body, "text"), expectedVersion: positiveIntegerBody(body, "expectedVersion"),
-    }));
-  }));
-
-  app.post("/v1/agent-drafts/:draftId/create", requireAnyScope(store, config, ["account:access"]), asyncRoute(async (request, response) => {
-    const body = exactObjectBody(request.body, ["expectedVersion", "idempotencyKey"]);
-    const result = await requireAccountAgentCreationPersistence(store).createAccountAgentFromDraftForCredential(requirePrincipal(request).credentialId, {
-      draftId: routeParameter(request.params.draftId), expectedVersion: positiveIntegerBody(body, "expectedVersion"), idempotencyKey: stringBody(body, "idempotencyKey"),
-    });
-    if (result.status === "created") publishAccountInvalidation({ type: "account-resource-invalidated", accountId: result.agent.accountId, resourceType: "agent", resourceId: result.agent.agentId, aspects: ["agent", "access", "presence"], observedAt: result.agent.updatedAt });
-    response.status(result.status === "created" ? 201 : 422).json(result);
-  }));
 
   app.get("/v1/agents", requireAnyScope(store, config, ["account:access"]), asyncRoute(async (request, response) => {
     const page = await requireAccountAgentManagementPersistence(store).queryAccountAgentCatalogForCredential(requirePrincipal(request).credentialId, accountAgentCatalogQuery(request));

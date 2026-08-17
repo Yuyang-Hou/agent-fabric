@@ -14,7 +14,6 @@ function authenticated() {
     listIncomingFriendInvitations: vi.fn().mockResolvedValue([]),
     listOutgoingFriendInvitations: vi.fn().mockResolvedValue([]),
     listAgentTemplates: vi.fn().mockResolvedValue([]),
-    listAgentDrafts: vi.fn().mockResolvedValue([]),
     getLegacyAgentMigrationRecovery: vi.fn().mockResolvedValue({ state: "not_required" }),
     completeLegacyAgentMigrationRecovery: vi.fn().mockResolvedValue({ state: "completed", backupId: "backup:one", importedAgentId: "agent:legacy", acknowledgedAt: at }),
     createFriendInvitation: vi.fn().mockResolvedValue(invitation),
@@ -23,12 +22,14 @@ function authenticated() {
     revokeFriendInvitation: vi.fn().mockResolvedValue(undefined),
     removeFriend: vi.fn().mockResolvedValue(undefined),
     refreshAccountRuntime: vi.fn(),
+    createAgent: vi.fn().mockResolvedValue({ agentId: "agent:one" }),
+    getAgentDetail: vi.fn().mockResolvedValue(detailFixture),
     logout: vi.fn().mockResolvedValue({ status: "logged_out" }),
   } as unknown as AccountProductAuthenticatedSession["client"];
   const value: AccountProductAuthenticatedSession = {
     client,
     accountName: "Owner Account",
-    localServices: { runtime: { state: "ready" }, mcp: { state: "ready" } },
+    localServices: { runtime: { state: "ready", runtimeId: "runtime:one" }, mcp: { state: "ready" } },
     session: {
       sessionId: "session:one", credentialId: "credential:secret", accountId: "account:one", userId: "human:owner",
       displayName: "Owner", email: "owner@example.com", createdAt: at,
@@ -220,6 +221,75 @@ describe("AccountProductHost", () => {
     expect(result).toMatchObject({ type: "snapshot", snapshot: { runtimes: [{ health: "ready", version: 3 }] } });
     expect(session.client.refreshAccountRuntime).not.toHaveBeenCalled();
   });
+
+  it("continues multiple Builder turns locally when Cloud creation is unavailable", async () => {
+    const session = authenticated();
+    session.client.listAccountRuntimes = vi.fn().mockResolvedValue([runtimeFixture]) as never;
+    session.client.createAgent = vi.fn().mockRejectedValue(new Error("cloud-offline")) as never;
+    const runLocalBuilderTurn = vi.fn()
+      .mockResolvedValueOnce({ proposal: { name: "研究助手", description: "整理证据", instructions: "使用来源" }, assistantText: "已更新研究助手。" })
+      .mockResolvedValueOnce({ proposal: { name: "研究助手", description: "整理证据并列出风险", instructions: "使用来源并区分推断" }, assistantText: "已加入风险分析。" });
+    const host = new AccountProductHost({
+      login: activatingLogin(session.value), restore: vi.fn().mockResolvedValue(session.value), clear: vi.fn().mockResolvedValue(undefined),
+    }, { runLocalBuilderTurn });
+    await host.restore();
+    await host.command({ type: "creation-start", mode: "ai" });
+    await host.command({ type: "builder-turn", text: "帮我研究" });
+    const result = await host.command({ type: "builder-turn", text: "再列出风险" });
+
+    expect(runLocalBuilderTurn).toHaveBeenCalledTimes(2);
+    expect(session.client.createAgent).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ type: "snapshot", snapshot: { creationSession: { name: "研究助手", description: "整理证据并列出风险", builder: { state: "idle" } } } });
+  });
+
+  it("discards the local Builder session when leaving the creation flow", async () => {
+    const session = authenticated();
+    session.client.listAccountRuntimes = vi.fn().mockResolvedValue([runtimeFixture]) as never;
+    const runLocalBuilderTurn = vi.fn().mockResolvedValue({ proposal: { name: "临时助手", description: "仅当前页面", instructions: "保持本地" }, assistantText: "已生成。" });
+    const closeLocalBuilder = vi.fn().mockResolvedValue(undefined);
+    const host = new AccountProductHost({
+      login: activatingLogin(session.value), restore: vi.fn().mockResolvedValue(session.value), clear: vi.fn().mockResolvedValue(undefined),
+    }, { runLocalBuilderTurn, closeLocalBuilder });
+    await host.restore();
+    await host.command({ type: "creation-start", mode: "ai" });
+    await host.command({ type: "builder-turn", text: "生成一个临时助手" });
+    const closeCountBeforeLeaving = closeLocalBuilder.mock.calls.length;
+    await host.command({ type: "navigate", route: { name: "agents" } });
+
+    expect(closeLocalBuilder).toHaveBeenCalledTimes(closeCountBeforeLeaving + 1);
+    expect(host.snapshot().creationSession).toBeUndefined();
+  });
+
+  it("discards the local Builder session when the Desktop window closes", async () => {
+    const session = authenticated();
+    session.client.listAccountRuntimes = vi.fn().mockResolvedValue([runtimeFixture]) as never;
+    const closeLocalBuilder = vi.fn().mockResolvedValue(undefined);
+    const host = new AccountProductHost({
+      login: activatingLogin(session.value), restore: vi.fn().mockResolvedValue(session.value), clear: vi.fn().mockResolvedValue(undefined),
+    }, { closeLocalBuilder });
+    await host.restore();
+    await host.command({ type: "creation-start", mode: "ai" });
+    const closeCountBeforeWindowClose = closeLocalBuilder.mock.calls.length;
+    await host.discardCreationSession();
+
+    expect(closeLocalBuilder).toHaveBeenCalledTimes(closeCountBeforeWindowClose + 1);
+    expect(host.snapshot()).toMatchObject({ route: { name: "agents" } });
+    expect(host.snapshot().creationSession).toBeUndefined();
+  });
+
+  it("validates locally and sends one final create request", async () => {
+    const session = authenticated();
+    session.client.listAccountRuntimes = vi.fn().mockResolvedValue([runtimeFixture]) as never;
+    const host = new AccountProductHost({ login: activatingLogin(session.value), restore: vi.fn().mockResolvedValue(session.value), clear: vi.fn().mockResolvedValue(undefined) });
+    await host.restore();
+    await host.command({ type: "creation-start", mode: "blank" });
+    const invalid = await host.command({ type: "creation-submit" });
+    expect(invalid).toMatchObject({ snapshot: { creationValidation: { valid: false } } });
+    expect(session.client.createAgent).not.toHaveBeenCalled();
+    await host.command({ type: "creation-update", update: { name: "本地助手", description: "", runtimeId: "runtime:one", permissionMode: "private", configuration: runtimeConfiguration } });
+    await host.command({ type: "creation-submit" });
+    expect(session.client.createAgent).toHaveBeenCalledTimes(1);
+  });
 });
 
 function activatingLogin(value: AccountProductAuthenticatedSession): AccountProductAuthenticationPort["login"] {
@@ -234,6 +304,8 @@ const runtimeFixture = {
     supportsCancellation: true, maxConcurrentAgents: 8,
   }, lastCheckedAt: at, createdAt: at, updatedAt: at, version: 1,
 } as const;
+
+const runtimeConfiguration = { instructions: "", maxConcurrentTasks: 1, skillIds: [], disabledRuntimeSkillIds: [], environmentVariableNames: [], customArguments: [], runtimeConfiguration: {}, mcpConnections: [], integrations: [] } as const;
 
 const detailFixture = {
   identity: { agentId: "agent:one", accountId: "account:one", ownerUserId: "human:owner", name: "Agent One", description: "Test Agent", runtimeId: "runtime:one", createdAt: at, updatedAt: at, version: 1 },

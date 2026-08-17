@@ -16,6 +16,7 @@
 - 让好友在 Desktop Agent 管理目录看到开放 Agent 的安全只读摘要，同时禁止一切管理、Runtime、秘密和活动访问。
 - 让现有四工具 MCP 和标准 A2A 在跨个人 Account 场景中使用同一好友授权真源，并在关系或开关变化后即时拒绝。
 - 保留 Runtime session ID、cwd、凭据、环境值、私有配置和上下文只在 Edge 的边界。
+- 让 AI Builder 成为 Desktop/Edge 内的纯本地一次性会话，由 Edge 直接调用本机 Runtime，并只在最终创建时提交一次完整 Agent 配置。
 
 **Non-Goals:**
 
@@ -23,12 +24,13 @@
 - 不做指定好友授权、公共 Agent 目录、好友搜索推荐、群组、App 内聊天或 Human 消息。
 - 不让好友查看或管理 Runtime、Skills、Instructions、模型私有配置、环境变量、凭据、Activity 明细或本地文件。
 - 不恢复历史 `list_agent_friends/send_message/get_message` MCP 工具，也不引入 A2A 私有顶层字段。
+- 不保存、恢复、同步或跨设备共享 Builder 草稿，不提供 Cloud Builder 推理或草稿版本冲突兼容层。
 
 ## Decisions
 
 ### 1. Account 保留为个人资源边界，Friendship 独立于 Account
 
-每个 Human 只有一个当前个人 Account；Agent、Runtime、Skill、Builder 草稿和本地 Host 仍由该 Account 隔离。过渡期保留 `account_memberships`，但每个 Account 只能存在一个 `owner` 行，成员/管理员 API 和 UI 全部退出。这样可以在不一次性重建 Agent/Runtime 复合外键的前提下消除跨 Human 的 Account 权限。
+每个 Human 只有一个当前个人 Account；Agent、Runtime、Skill 和本地 Host 仍由该 Account 隔离。Builder 没有服务端资源身份，其会话只存在于当前 Desktop 页面生命周期内。过渡期保留 `account_memberships`，但每个 Account 只能存在一个 `owner` 行，成员/管理员 API 和 UI 全部退出。这样可以在不一次性重建 Agent/Runtime 复合外键的前提下消除跨 Human 的 Account 权限。
 
 备选方案是彻底删除 Account 并让所有资源直接以 Human 为租户。它会同时改写 Runtime tunnel、Edge registration、Agent catalog、Skill、Builder 和发行证据，风险高且不能改善当前用户体验，因此拒绝。
 
@@ -105,6 +107,20 @@ A2A Message、Task、TaskState、Artifact 和 Agent Card 保持 v1.0.1 标准形
 
 发布自测候选不等于最终发布批准：`trusted-macos-auto-update`、双 Human 好友链路、即时撤权和最终视觉验收继续保持 pending。只有真实验收完成并记录证据后，才能批准最终发行门禁；需要后续版本才能验证的 N→N+1 更新必须使用另一个已签名 beta，不能用同一产物自证。
 
+### 12. AI Builder 是本地一次性会话
+
+Renderer 只保存当前页面所需的输入、消息、选中 Runtime 和预览配置；Main/Edge 为该页面建立内存态 Builder session，并通过 Runtime Adapter 直接执行每一轮模型推理。Builder session 不拥有 `draftId` 或服务端版本号，不进入 Account Server API、Cloud 持久化、失效通知或登录 bootstrap，离开页面、关闭 App 或重启后直接丢弃。
+
+Runtime Adapter 接收结构化的 Builder 上下文并返回经本地 schema 校验的建议配置；Runtime session ID、cwd、凭据和私有上下文仍只存在于 Edge。Renderer 只能收到生成 UI 所需的安全消息和配置投影。Cloud 不可用不得阻断已经登录且本机 Runtime 可用的 Builder 多轮生成。
+
+备选方案是继续使用 `/v1/agent-drafts/:draftId/builder-turns` 让 Cloud 编排本机 Runtime。该方案制造双写、版本冲突和离线失败，并让一次性中间状态越过不必要的信任边界，因此删除。
+
+### 13. 最终创建使用单次服务端提交，旧草稿存储安全退役
+
+用户点击“创建智能体”时，Desktop 先在本地校验完整 Agent 配置、Owner Runtime 可绑定性和私有默认访问；校验失败不发请求。校验通过后只调用现有最终 Agent create contract 一次，服务端继续独立执行鉴权和校验。成功后清空本地 Builder session 并进入新 Agent 详情；失败时保留当前页面内存状态供用户修正或显式重试，但不得自动重复创建。
+
+`AgentDraft` Domain/Client/IPC 命令、`/v1/agent-drafts*` 路由、Builder turn orchestration 和草稿 repository 从产品运行时代码移除。数据库迁移先停止草稿表读写并保留现有表/数据作为回滚证据；不得在本次变化中不可恢复删除历史数据。后续删除必须经过备份、存量计数、回滚窗口和独立迁移批准。
+
 ## Risks / Trade-offs
 
 - [跨 Account 查询扩大枚举面] → 只从已验证 Human 关系出发查询，未授权与不存在统一返回，禁止公共名称/邮箱搜索。
@@ -114,17 +130,21 @@ A2A Message、Task、TaskState、Artifact 和 Agent Card 保持 v1.0.1 标准形
 - [成员实际拥有资源导致一人一 Account 迁移困难] → 发布前只读审计；检测到真实数据即暂停自动切换并生成显式迁移计划。
 - [保留内部 owner membership 继续造成术语漂移] → 不再暴露 role/member API；后续仅在稳定迁移后删除兼容表，不让内部实现反向定义产品。
 - [好友可调用意味着远端文本进入本机 Runtime] → 继续标记外部输入为不可信，Runtime 默认只读/无网络/无副作用，私有 Session 按目标 Agent 与来源 Human 隔离。
+- [本地 Builder 状态在关闭后丢失] → UI 明确其一次性属性；创建失败只在当前页面生命周期内保留状态，不承诺恢复。
+- [移除服务端草稿代码影响旧客户端] → `/v1/agent-drafts*` 不保留产品兼容入口；发布切换前确认当前受支持 Desktop 已同步更新，旧表只读保留以支持二进制回滚。
 
 ## Migration Plan
 
-1. 新增 Friendship、Invitation、Agent access mode 和跨 Account Task schema，保持旧产品可运行。
-2. 发布只读审计工具并在测试/目标数据库记录红acted 计数；非 Owner 数据触发人工迁移门禁。
-3. 实现统一好友授权与新 API，完成 Fake 双账号契约测试，但暂不切默认 UI。
-4. 更新 Desktop、MCP、A2A 和 invalidation，默认把旧访问映射为 private。
-5. 切换 `CURRENT.md`、主 specs 和 default-product Gate，禁用旧 member mutation 路由。
-6. 从当前 `main` 构建、签名、公证、Staple 并发布一个明确标记为 Pre-release 的 beta 自测候选，安装到测试设备。
-7. 使用该发行候选完成两 Google 账号/两隔离设备真实验收、撤权检查和视觉走查；验收完成前最终发行门禁保持 pending。
-8. 至少保留一个版本的旧表只读备份；确认无回滚需求后另立清理任务。
+1. 更新当前 OpenSpec 权威并先以测试锁定本地 Builder、无草稿网络请求和单次最终创建边界。
+2. 新增 Friendship、Invitation、Agent access mode 和跨 Account Task schema，保持旧产品可运行。
+3. 发布只读审计工具并在测试/目标数据库记录红acted 计数；非 Owner 数据触发人工迁移门禁。
+4. 实现统一好友授权与新 API，完成 Fake 双账号契约测试，但暂不切默认 UI。
+5. 更新 Desktop、MCP、A2A 和 invalidation，默认把旧访问映射为 private。
+6. 将 Builder 切为 Desktop/Edge 本地会话，随后移除 Client/IPC/Domain 和 Server 的草稿运行时入口；旧表停止读写但不删除。
+7. 切换 `CURRENT.md`、主 specs 和 default-product Gate，禁用旧 member mutation 与 Agent draft 路由。
+8. 从当前 `main` 构建、签名、公证、Staple 并发布一个明确标记为 Pre-release 的 beta 自测候选，安装到测试设备。
+9. 使用该发行候选完成两 Google 账号/两隔离设备真实验收、撤权检查和视觉走查；验收完成前最终发行门禁保持 pending。
+10. 至少保留一个版本的旧表只读备份；确认无回滚需求后另立清理任务。
 
 ## Open Questions
 

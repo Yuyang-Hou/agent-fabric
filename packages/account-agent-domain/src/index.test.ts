@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import {
   agentCatalogPageSchema,
   agentConfigurationSchema,
-  agentDraftSchema,
   agentSchema,
   friendAgentSummarySchema,
   friendInvitationSchema,
@@ -99,16 +98,11 @@ describe("personal Account and Human friendship contracts", () => {
     expect(() => runtimeSchema.parse({ ...parsedRuntime, runtimeSessionId: "private-session", cwd: "/private/project" })).toThrow();
   });
 
-  it("validates Runtime Skills and durable Builder drafts independently", () => {
+  it("validates Runtime Skills without defining a durable Builder resource", () => {
     expect(skillSchema.parse({
       skillId: "skill:runtime", accountId, name: "Runtime skill", description: "Discovered on the bound Runtime",
       origin: "runtime", runtimeId: "runtime:one", createdAt: at, updatedAt: at, version: 1,
     }).origin).toBe("runtime");
-    expect(agentDraftSchema.parse({
-      draftId: "draft:one", accountId, ownerUserId, mode: "ai", name: "", description: "", pendingUserText: "",
-      builderSession: { state: "idle", conversation: [] }, permissionMode: "private", configuration, state: "active",
-      createdAt: at, updatedAt: at, expiresAt: "2026-08-20T00:00:00.000Z", version: 1,
-    }).state).toBe("active");
   });
 });
 

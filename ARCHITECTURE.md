@@ -44,7 +44,7 @@ The Desktop Renderer is sandboxed and receives only validated Account product sn
 | Runtime session ID, cwd, model credential, environment values | Edge | never |
 | environment values, MCP/integration credentials and private Runtime context | Edge | values never persist in Cloud; explicit replacement payloads transit Cloud to Edge |
 | Agent Instructions and ordinary current configuration | Cloud / MySQL | required current Agent state; manager-only fields are access-controlled, not local-only |
-| AI Builder draft, pending text and Builder conversation | Cloud / MySQL | logically expires after seven days; physical purge is not currently implemented |
+| AI Builder input, conversation and preview | Desktop / Edge memory only | never enters Cloud; discarded on leave, close or restart |
 | raw A2A Prompt, answer and Artifact bodies | Cloud transit + in-memory router / Edge | no default MySQL body persistence; operational retention still requires an operator policy |
 
 Cloud does not run an Owner Agent and does not host model credentials. Edge only makes outbound authenticated connections; it does not expose the local Runtime directly to the public network.

@@ -48,11 +48,11 @@ The Agents page SHALL provide a collection header and owner-only New Agent actio
 - **THEN** selection state and applicable batch actions appear without enabling selection or mutation of friend-opened rows
 
 ### Requirement: Create and detail flows preserve Multica-equivalent hierarchy
-The method chooser, manual studio, template flow, AI Builder, draft restoration and Agent detail SHALL match the reference's information hierarchy, progressive disclosure, tab organization, sticky/visible primary actions, dirty guards and recoverable feedback while using Agent Fabric content and components.
+The method chooser, manual studio, template flow, local AI Builder and Agent detail SHALL match the reference's information hierarchy, progressive disclosure, tab organization, visible primary actions and recoverable feedback while using Agent Fabric content and components. Creation state is current-page local state and MUST NOT expose restoration or Cloud autosave affordances.
 
 #### Scenario: Creation method is chosen
 - **WHEN** the user selects blank, template or AI Builder
-- **THEN** the next surface preserves context, shows the correct primary action and does not mix all methods into one overloaded form
+- **THEN** the next surface opens fresh local state, preserves the correct primary action and does not mix all methods into one overloaded form
 
 #### Scenario: Detail configuration is unsupported
 - **WHEN** the bound Runtime does not support an MCP, Integration or provider-specific setting
@@ -72,6 +72,21 @@ Runtime list/detail and Friends/friend-invitations SHALL use the same collection
 #### Scenario: Runtime deletion opens
 - **WHEN** the owner deletes a Runtime used by owned Agents
 - **THEN** a focused confirmation shows the real owned-Agent impact plan, requires an explicit choice and keeps cancel as a safe keyboard path
+
+### Requirement: AI Builder presents a local ephemeral session
+The AI Builder UI SHALL present local Runtime selection, multi-turn conversation, generation progress, recoverable current-page errors and a live Agent configuration preview. It MUST NOT display or depend on draft IDs, server versions, autosave state, version-conflict recovery, continue-draft entrypoints or cross-restart restoration.
+
+#### Scenario: Builder is opened fresh
+- **WHEN** the owner enters AI Builder
+- **THEN** a new empty local session opens without fetching, creating or restoring an Agent draft
+
+#### Scenario: Builder generation fails locally
+- **WHEN** the selected Runtime is unavailable, unauthenticated or rejects a turn
+- **THEN** the current-page input and prior preview remain available with a bounded retry action and no Cloud fallback
+
+#### Scenario: Builder final creation succeeds
+- **WHEN** the owner submits a complete local preview and the final create request succeeds
+- **THEN** the UI leaves Builder and opens the created Agent detail without retaining a continue-draft entry
 
 ### Requirement: UI quality is evidence-gated
 Before implementation, approved comps SHALL exist for login, owned/friend Agent scopes, create chooser, manual create, AI Builder, owner Agent detail, friend Agent summary, Runtimes and Friends/invitations. Before acceptance, the shipped product SHALL pass functional state tests, accessibility checks, source-policy, one Impeccable detector pass, bounded screenshot review and a finish verdict at target viewports.

@@ -3,7 +3,6 @@ import type {
   AccountMember,
   Agent,
   AgentActivity,
-  AgentDraft,
   AgentRuntime,
   FriendInvitation,
   FriendSummary,
@@ -74,12 +73,6 @@ export interface SkillRepository {
   replaceAgentSkills(accountId: string, agentId: string, skillIds: readonly string[], disabledRuntimeSkillIds: readonly string[]): Promise<void>;
 }
 
-export interface DraftRepository {
-  saveDraft(draft: AgentDraft, expectedVersion?: number): Promise<AgentDraft>;
-  getDraft(accountId: string, draftId: string): Promise<AgentDraft | undefined>;
-  listDrafts(accountId: string, ownerUserId: string, page: PageRequest): Promise<RepositoryPage<AgentDraft>>;
-}
-
 export interface ActivityRepository {
   appendActivity(activity: AgentActivity): Promise<AgentActivity>;
   listActivities(accountId: string, agentId: string, page: PageRequest): Promise<RepositoryPage<AgentActivity>>;
@@ -91,7 +84,6 @@ export interface AccountAgentRepositories
     RuntimeRepository,
     AgentRepository,
     SkillRepository,
-    DraftRepository,
     ActivityRepository {}
 
 export interface AccountAgentUnitOfWork extends AccountAgentRepositories {

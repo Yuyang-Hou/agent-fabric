@@ -1,7 +1,6 @@
 import {
   accountSchema,
   accountMemberSchema,
-  agentDraftSchema,
   agentBatchLifecycleRequestSchema,
   agentBatchLifecycleResultSchema,
   agentCatalogQuerySchema,
@@ -20,8 +19,6 @@ import {
   effectiveAccessScope,
   confirmRuntimeDeletionRequestSchema,
   confirmMemberRemovalRequestSchema,
-  createAgentFromDraftCommandSchema,
-  findApprovedAgentTemplate,
   completeLegacyAgentMigrationRecoverySchema,
   friendInvitationSchema,
   friendInvitationViewSchema,
@@ -37,7 +34,6 @@ import {
   runtimeSkillSummarySchema,
   runtimeSchema,
   runtimeDeletionImpactSchema,
-  validateAgentDraftForCreate,
   validateConfigurationForRuntime,
   type Account,
   type AccountMember,
@@ -47,9 +43,6 @@ import {
   type AgentBatchLifecycleResult,
   type AgentCatalogQuery,
   type AgentCatalogRow,
-  type AgentBuilderProposal,
-  type AgentDraft,
-  type AgentDraftValidationResult,
   type AgentDetailProjection,
   type AgentSkillCatalog,
   type AgentSkillMutation,
@@ -59,7 +52,6 @@ import {
   type AgentEditableConfiguration,
   type AccountSession,
   type ConfirmMemberRemovalRequest,
-  type CreateAgentFromDraftCommand,
   type ConfirmRuntimeDeletionRequest,
   type MemberInvitation,
   type MemberRemovalImpact,
@@ -84,7 +76,7 @@ import { credentialScopeSchema, principalKindSchema, type CredentialScope, type 
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import mysql, { type Pool, type PoolConnection, type ResultSetHeader as ResultHeader, type RowDataPacket } from "mysql2/promise";
 
-import { accountAgentA2AMySqlMigrationStatements, accountAgentCreationV8MySqlMigrationStatements, accountAgentMySqlMigrationStatements, accountRuntimeDeletionV7MySqlMigrationStatements, accountSelfTestV10MySqlMigrationStatements, applyHumanFriendshipV11Migration, initialMySqlMigrationStatements, legacyMigrationRecoveryV9MySqlMigrationStatements, onboardingMySqlMigrationStatements, personalAgentMySqlMigrationStatements, selfServiceMySqlMigrationStatements } from "./migration.js";
+import { accountAgentA2AMySqlMigrationStatements, accountAgentCreationV8MySqlMigrationStatements, accountAgentMySqlMigrationStatements, accountRuntimeDeletionV7MySqlMigrationStatements, accountSelfTestV10MySqlMigrationStatements, applyHumanFriendshipV11Migration, initialMySqlMigrationStatements, legacyCreationStateRetirementV12MySqlMigrationStatements, legacyMigrationRecoveryV9MySqlMigrationStatements, onboardingMySqlMigrationStatements, personalAgentMySqlMigrationStatements, selfServiceMySqlMigrationStatements } from "./migration.js";
 
 const migrationLockName = "agent_fabric_schema_migration";
 const legacyMigrationPrivateFields = ["environment_values", "runtime_credentials", "runtime_configuration", "agent_mcp_credentials", "integration_credentials", "private_skill_contents"] as const;
@@ -171,7 +163,7 @@ export class MySqlStore {
       await connection.query(initialMySqlMigrationStatements[0]);
       const [versionRows] = await connection.query<VersionRow[]>("SELECT COALESCE(MAX(version), 0) AS version FROM schema_migrations");
       const current = Number(versionRows[0]?.version ?? 0);
-      if (current > 11) throw new MySqlPersistenceError("schema-newer-than-server");
+      if (current > 12) throw new MySqlPersistenceError("schema-newer-than-server");
       if (current < 1) {
         for (const statement of initialMySqlMigrationStatements.slice(1)) await connection.query(statement);
         await connection.query("INSERT IGNORE INTO schema_migrations(version) VALUES (1)");
@@ -217,6 +209,10 @@ export class MySqlStore {
         if (audit.requiresHumanReview) throw new MySqlPersistenceError("human-friendship-migration-review-required");
         await applyHumanFriendshipV11Migration(connection);
         await connection.query("INSERT IGNORE INTO schema_migrations(version) VALUES (11)");
+      }
+      if (current < 12) {
+        for (const statement of legacyCreationStateRetirementV12MySqlMigrationStatements) await connection.query(statement);
+        await connection.query("INSERT IGNORE INTO schema_migrations(version) VALUES (12)");
       }
       await connection.execute("INSERT IGNORE INTO fabric_instances(instance_id,public_base_url,created_at,bootstrap_consumed_at) VALUES ('instance:account-product','internal',UTC_TIMESTAMP(3),UTC_TIMESTAMP(3))");
     } finally {
@@ -938,7 +934,6 @@ export class MySqlStore {
           await connection.execute("DELETE FROM account_runtimes WHERE account_id=? AND runtime_id=? AND owner_user_id=?", [actor.account_id, disposition.runtimeId, targetUserId]);
         }
       }
-      await connection.execute("UPDATE agent_builder_drafts SET owner_user_id=?,version=version+1,updated_at=? WHERE account_id=? AND owner_user_id=?", [actor.user_id, sqlDate(now), actor.account_id, targetUserId]);
       await connection.execute("DELETE FROM agent_invocation_targets WHERE account_id=? AND target_user_id=?", [actor.account_id, targetUserId]);
       await connection.execute("UPDATE account_member_invitations SET status='revoked',revoked_at=?,version=version+1 WHERE account_id=? AND invited_by_user_id=? AND status='pending'", [sqlDate(now), actor.account_id, targetUserId]);
       await connection.execute(String.raw`
@@ -1143,219 +1138,6 @@ export class MySqlStore {
     });
   }
 
-  async createAccountAgentDraftForCredential(credentialId: string, inputValue: unknown, now = new Date().toISOString()): Promise<AgentDraft> {
-    const input = parseCreateAgentDraft(inputValue);
-    return this.#transaction(async (connection) => {
-      const actor = await this.#accountActor(connection, credentialId, now);
-      const template = input.mode === "template" ? findApprovedAgentTemplate(input.templateId) : undefined;
-      if (input.mode === "template" && !template) throw new MySqlPersistenceError("agent-template-not-found");
-      const draft = agentDraftSchema.parse({
-        draftId: `draft:${randomUUID()}`, accountId: actor.account_id, ownerUserId: actor.user_id, mode: input.mode,
-        ...(template ? { templateId: template.templateId, name: template.name, description: template.description } : { name: "", description: "" }),
-        permissionMode: "private",
-        configuration: { ...emptyAgentConfiguration(), instructions: template?.instructions ?? "" },
-        pendingUserText: "",
-        ...(input.mode === "ai" ? { builderSession: { state: "idle", conversation: [] } } : {}),
-        state: "active", createdAt: now, updatedAt: now, expiresAt: new Date(Date.parse(now) + 7 * 24 * 60 * 60 * 1000).toISOString(), version: 1,
-      });
-      await connection.execute(String.raw`
-        INSERT INTO agent_builder_drafts(draft_id,account_id,owner_user_id,mode,template_id,state,draft,created_agent_id,create_idempotency_key,version,expires_at,created_at,updated_at)
-        VALUES (?,?,?,?,?,?,?,NULL,NULL,1,?,?,?)
-      `, [draft.draftId, draft.accountId, draft.ownerUserId, draft.mode, draft.templateId ?? null, draft.state, JSON.stringify(draft), sqlDate(draft.expiresAt), sqlDate(now), sqlDate(now)]);
-      return draft;
-    });
-  }
-
-  async getAccountAgentDraftForCredential(credentialId: string, draftId: string, now = new Date().toISOString()): Promise<AgentDraft> {
-    return this.#transaction(async (connection) => {
-      const actor = await this.#accountActor(connection, credentialId, now);
-      const row = await this.#accountAgentDraft(connection, actor, draftId, false, now);
-      return mapAccountAgentDraft(row);
-    });
-  }
-
-  async listAccountAgentDraftsForCredential(credentialId: string, request: { readonly limit: number; readonly after?: StableCursor }, now = new Date().toISOString()): Promise<RepositoryPage<AgentDraft>> {
-    const limit = accountPageLimit(request.limit);
-    return this.#transaction(async (connection) => {
-      const actor = await this.#accountActor(connection, credentialId, now);
-      const values: (string | number | Date)[] = [actor.account_id, actor.user_id, sqlDate(now)];
-      let cursor = "";
-      if (request.after) {
-        cursor = " AND (updated_at < ? OR (updated_at=? AND draft_id < ?))";
-        values.push(sqlDate(request.after.sortValue), sqlDate(request.after.sortValue), request.after.id);
-      }
-      const [rows] = await connection.execute<AccountAgentDraftRow[]>(`SELECT * FROM agent_builder_drafts WHERE account_id=? AND owner_user_id=? AND expires_at>?${cursor} ORDER BY updated_at DESC,draft_id DESC LIMIT ${limit}`, values);
-      const items = rows.map(mapAccountAgentDraft);
-      const last = items.at(-1);
-      return { items, ...(items.length === limit && last ? { nextCursor: { sortValue: last.updatedAt, id: last.draftId } } : {}) };
-    });
-  }
-
-  async saveAccountAgentDraftForCredential(credentialId: string, draftId: string, inputValue: unknown, now = new Date().toISOString()): Promise<AgentDraft> {
-    const input = parseAccountAgentDraftMutation(inputValue);
-    return this.#transaction(async (connection) => {
-      const actor = await this.#accountActor(connection, credentialId, now);
-      const row = await this.#accountAgentDraft(connection, actor, draftId, true, now);
-      const current = mapAccountAgentDraft(row);
-      if (current.state === "created") throw new MySqlPersistenceError("agent-draft-already-created");
-      if (current.version !== input.expectedVersion) throw new MySqlPersistenceError("agent-draft-version-conflict");
-      let configuration = input.configuration;
-      if (input.runtimeId !== current.runtimeId) {
-        if (current.builderSession?.state === "in_flight") throw new MySqlPersistenceError("agent-builder-turn-in-flight");
-        if (input.runtimeId) {
-          await this.#assertRuntimeBind(connection, actor, input.runtimeId);
-          const [runtimeRows] = await connection.execute<AccountRuntimeRow[]>("SELECT * FROM account_runtimes WHERE account_id=? AND runtime_id=?", [actor.account_id, input.runtimeId]);
-          if (!runtimeRows[0]) throw new MySqlPersistenceError("runtime-account-denied");
-          configuration = resetUnsupportedRuntimeOptions(configuration, mapAccountRuntime(runtimeRows[0]));
-        }
-      }
-      const { expectedVersion: _expectedVersion, ...edits } = input;
-      void _expectedVersion;
-      const next = agentDraftSchema.parse({
-        ...current, ...edits, configuration, draftId, accountId: actor.account_id, ownerUserId: actor.user_id,
-        state: "active", updatedAt: now, version: current.version + 1,
-      });
-      const [result] = await connection.execute<ResultHeader>(String.raw`
-        UPDATE agent_builder_drafts SET state=?,draft=?,version=version+1,expires_at=?,updated_at=?
-        WHERE account_id=? AND draft_id=? AND owner_user_id=? AND version=?
-      `, [next.state, JSON.stringify(next), sqlDate(next.expiresAt), sqlDate(now), actor.account_id, draftId, actor.user_id, current.version]);
-      if (result.affectedRows !== 1) throw new MySqlPersistenceError("agent-draft-version-conflict");
-      return next;
-    });
-  }
-
-  async startAccountAgentBuilderTurnForCredential(credentialId: string, draftId: string, inputValue: unknown, now = new Date().toISOString()): Promise<{
-    readonly draft: AgentDraft; readonly accountId: string; readonly userId: string; readonly runtimeId: string; readonly turnId: string;
-  }> {
-    const input = parseBuilderTurnStart(inputValue);
-    return this.#transaction(async (connection) => {
-      const actor = await this.#accountActor(connection, credentialId, now);
-      const current = mapAccountAgentDraft(await this.#accountAgentDraft(connection, actor, draftId, true, now));
-      if (current.mode !== "ai" || !current.builderSession) throw new MySqlPersistenceError("agent-builder-draft-required");
-      if (current.version !== input.expectedVersion) throw new MySqlPersistenceError("agent-draft-version-conflict");
-      if (current.builderSession.state === "in_flight") throw new MySqlPersistenceError("agent-builder-turn-in-flight");
-      if (!current.runtimeId) throw new MySqlPersistenceError("agent-builder-runtime-required");
-      await this.#assertRuntimeBind(connection, actor, current.runtimeId);
-      const turnId = `builder-turn:${randomUUID()}`;
-      const nextVersion = current.version + 1;
-      const draft = agentDraftSchema.parse({
-        ...current, pendingUserText: "", state: "active", updatedAt: now, version: nextVersion,
-        builderSession: {
-          state: "in_flight", inFlight: { turnId, baseDraftVersion: nextVersion, startedAt: now },
-          conversation: [...current.builderSession.conversation, { messageId: `builder-message:${randomUUID()}`, role: "user", text: input.text, createdAt: now }],
-          ...(current.builderSession.lastAppliedProposal ? { lastAppliedProposal: current.builderSession.lastAppliedProposal } : {}),
-        },
-      });
-      const [updated] = await connection.execute<ResultHeader>("UPDATE agent_builder_drafts SET state='active',draft=?,version=version+1,updated_at=? WHERE account_id=? AND draft_id=? AND owner_user_id=? AND version=?", [JSON.stringify(draft), sqlDate(now), actor.account_id, draftId, actor.user_id, current.version]);
-      if (updated.affectedRows !== 1) throw new MySqlPersistenceError("agent-draft-version-conflict");
-      return { draft, accountId: actor.account_id, userId: actor.user_id, runtimeId: current.runtimeId, turnId };
-    });
-  }
-
-  async completeAccountAgentBuilderTurnForCredential(credentialId: string, draftId: string, input: {
-    readonly turnId: string; readonly assistantText?: string; readonly proposal?: AgentBuilderProposal; readonly errorCode?: string;
-  }, now = new Date().toISOString()): Promise<AgentDraft> {
-    if ((!input.proposal && !input.errorCode) || (input.proposal && input.errorCode) || (input.assistantText?.length ?? 0) > 20_000) throw new MySqlPersistenceError("agent-builder-result-invalid");
-    return this.#transaction(async (connection) => {
-      const actor = await this.#accountActor(connection, credentialId, now);
-      const current = mapAccountAgentDraft(await this.#accountAgentDraft(connection, actor, draftId, true, now));
-      const builder = current.builderSession;
-      if (current.mode !== "ai" || !builder?.inFlight || builder.inFlight.turnId !== input.turnId) throw new MySqlPersistenceError("agent-builder-turn-not-found");
-      const newerUserEdits = current.version > builder.inFlight.baseDraftVersion;
-      let configuration = current.configuration;
-      let applied: Pick<AgentDraft, "name" | "description"> & { readonly configuration: AgentConfiguration } = { name: current.name, description: current.description, configuration };
-      if (input.proposal && !newerUserEdits) {
-        const [runtimeRows] = current.runtimeId ? await connection.execute<AccountRuntimeRow[]>("SELECT * FROM account_runtimes WHERE account_id=? AND runtime_id=?", [actor.account_id, current.runtimeId]) : [[] as unknown as AccountRuntimeRow[], []];
-        configuration = { ...configuration, instructions: input.proposal.instructions, ...(input.proposal.model ? { model: input.proposal.model } : {}), ...(input.proposal.thinkingLevel ? { thinkingLevel: input.proposal.thinkingLevel } : {}), ...(input.proposal.serviceTier ? { serviceTier: input.proposal.serviceTier } : {}) };
-        if (runtimeRows[0]) configuration = resetUnsupportedRuntimeOptions(configuration, mapAccountRuntime(runtimeRows[0]));
-        applied = { name: input.proposal.name, description: input.proposal.description, configuration };
-      }
-      const nextVersion = current.version + 1;
-      const proposalApplied = Boolean(input.proposal && !newerUserEdits);
-      const recoverableErrorCode = newerUserEdits ? "builder-proposal-stale" : input.errorCode;
-      const draft = agentDraftSchema.parse({
-        ...current, ...applied, state: recoverableErrorCode && recoverableErrorCode !== "builder-proposal-stale" ? "failed" : "active", updatedAt: now, version: nextVersion,
-        builderSession: {
-          state: recoverableErrorCode && recoverableErrorCode !== "builder-proposal-stale" ? "failed" : "idle",
-          conversation: [...builder.conversation, ...(input.assistantText ? [{ messageId: `builder-message:${randomUUID()}`, role: "assistant" as const, text: input.assistantText, createdAt: now }] : [])],
-          ...(proposalApplied ? { lastAppliedProposal: { proposalId: `builder-proposal:${randomUUID()}`, draftVersion: nextVersion, appliedAt: now } } : builder.lastAppliedProposal ? { lastAppliedProposal: builder.lastAppliedProposal } : {}),
-          ...(recoverableErrorCode ? { recoverableErrorCode } : {}),
-        },
-      });
-      const [updated] = await connection.execute<ResultHeader>("UPDATE agent_builder_drafts SET state=?,draft=?,version=version+1,updated_at=? WHERE account_id=? AND draft_id=? AND owner_user_id=? AND version=?", [draft.state, JSON.stringify(draft), sqlDate(now), actor.account_id, draftId, actor.user_id, current.version]);
-      if (updated.affectedRows !== 1) throw new MySqlPersistenceError("agent-draft-version-conflict");
-      return draft;
-    });
-  }
-
-  async validateAccountAgentDraftForCredential(credentialId: string, draftId: string, now = new Date().toISOString()): Promise<AgentDraftValidationResult> {
-    return this.#transaction(async (connection) => {
-      const actor = await this.#accountActor(connection, credentialId, now);
-      const draft = mapAccountAgentDraft(await this.#accountAgentDraft(connection, actor, draftId, false, now));
-      return this.#validateAccountAgentDraft(connection, actor, draft);
-    });
-  }
-
-  async createAccountAgentFromDraftForCredential(credentialId: string, inputValue: CreateAgentFromDraftCommand | unknown, now = new Date().toISOString()): Promise<
-    | { readonly status: "created"; readonly agent: Agent; readonly draft: AgentDraft }
-    | { readonly status: "validation_failed"; readonly draft: AgentDraft; readonly validation: AgentDraftValidationResult }
-  > {
-    const input = createAgentFromDraftCommandSchema.parse(inputValue);
-    return this.#transaction(async (connection) => {
-      const actor = await this.#accountActor(connection, credentialId, now);
-      const row = await this.#accountAgentDraft(connection, actor, input.draftId, true, now);
-      if (row.create_idempotency_key) {
-        if (row.create_idempotency_key !== input.idempotencyKey || !row.created_agent_id) throw new MySqlPersistenceError("agent-create-idempotency-conflict");
-        const agent = await this.#loadAccountAgent(connection, actor.account_id, row.created_agent_id);
-        if (!agent) throw new MySqlPersistenceError("agent-create-resolution-invalid");
-        return { status: "created", agent, draft: mapAccountAgentDraft(row) };
-      }
-      const [conflicts] = await connection.execute<IdentifierRow[]>("SELECT draft_id AS instance_id FROM agent_builder_drafts WHERE account_id=? AND create_idempotency_key=? FOR UPDATE", [actor.account_id, input.idempotencyKey]);
-      if (conflicts[0]) throw new MySqlPersistenceError("agent-create-idempotency-conflict");
-      const draft = mapAccountAgentDraft(row);
-      if (draft.version !== input.expectedVersion) throw new MySqlPersistenceError("agent-draft-version-conflict");
-      if (draft.state === "created") throw new MySqlPersistenceError("agent-draft-already-created");
-      const validation = await this.#validateAccountAgentDraft(connection, actor, draft);
-      if (!validation.valid) return { status: "validation_failed", draft, validation };
-      const template = draft.mode === "template" ? findApprovedAgentTemplate(draft.templateId) : undefined;
-      const importedSkillIds: string[] = [];
-      for (const reference of template?.skillReferences ?? []) {
-        const templateRef = `${template?.templateId}:${reference.key}`;
-        const skillId = `skill:${randomUUID()}`;
-        await connection.execute(String.raw`
-          INSERT INTO account_skills(skill_id,account_id,runtime_id,template_ref,name,description,origin,version,created_at,updated_at)
-          VALUES (?,?,NULL,?,?,?,'account',1,?,?)
-          ON DUPLICATE KEY UPDATE updated_at=updated_at
-        `, [skillId, actor.account_id, templateRef, reference.name, reference.description, sqlDate(now), sqlDate(now)]);
-        const [skillRows] = await connection.execute<IdentifierRow[]>("SELECT skill_id AS instance_id FROM account_skills WHERE account_id=? AND template_ref=?", [actor.account_id, templateRef]);
-        const resolvedSkillId = skillRows[0]?.instance_id;
-        if (!resolvedSkillId) throw new MySqlPersistenceError("agent-template-skill-import-failed");
-        importedSkillIds.push(resolvedSkillId);
-      }
-      const configuration = { ...draft.configuration, skillIds: [...new Set([...draft.configuration.skillIds, ...importedSkillIds])] };
-      await this.#validateAccountSkillIds(connection, actor.account_id, draft.runtimeId as string, configuration.skillIds, configuration.disabledRuntimeSkillIds);
-      const agent = agentSchema.parse({
-        agentId: `agent:${randomUUID()}`, accountId: actor.account_id, ownerUserId: actor.user_id,
-        name: draft.name, description: draft.description, ...(draft.avatarUrl ? { avatarUrl: draft.avatarUrl } : {}), runtimeId: draft.runtimeId,
-        permissionMode: draft.permissionMode, configuration,
-        createdAt: now, updatedAt: now, version: 1,
-      });
-      await connection.execute(String.raw`
-        INSERT INTO account_agents(agent_id,account_id,owner_user_id,runtime_id,name,description,avatar_url,permission_mode,configuration,version,created_at,updated_at)
-        VALUES (?,?,?,?,?,?,?,?,?,1,?,?)
-      `, [agent.agentId, agent.accountId, agent.ownerUserId, agent.runtimeId ?? null, agent.name, agent.description, agent.avatarUrl ?? null, agent.permissionMode, JSON.stringify(agent.configuration), sqlDate(now), sqlDate(now)]);
-      for (const skillId of agent.configuration.skillIds) await connection.execute("INSERT INTO agent_skill_bindings(account_id,agent_id,skill_id,created_at) VALUES (?,?,?,?)", [actor.account_id, agent.agentId, skillId, sqlDate(now)]);
-      for (const skillId of agent.configuration.disabledRuntimeSkillIds) await connection.execute("INSERT INTO agent_disabled_runtime_skills(account_id,agent_id,skill_id,created_at) VALUES (?,?,?,?)", [actor.account_id, agent.agentId, skillId, sqlDate(now)]);
-      const createdDraft = agentDraftSchema.parse({ ...draft, configuration, state: "created", createdAgentId: agent.agentId, updatedAt: now, version: draft.version + 1 });
-      const [updated] = await connection.execute<ResultHeader>(String.raw`
-        UPDATE agent_builder_drafts SET state='created',draft=?,created_agent_id=?,create_idempotency_key=?,version=version+1,updated_at=?
-        WHERE account_id=? AND draft_id=? AND owner_user_id=? AND version=? AND created_agent_id IS NULL
-      `, [JSON.stringify(createdDraft), agent.agentId, input.idempotencyKey, sqlDate(now), actor.account_id, draft.draftId, actor.user_id, draft.version]);
-      if (updated.affectedRows !== 1) throw new MySqlPersistenceError("agent-create-idempotency-conflict");
-      await this.#audit(connection, actor.user_id, "account.agent.create_from_draft", "account_agent", agent.agentId, "success", { mode: draft.mode, template: draft.templateId ?? null }, now);
-      return { status: "created", agent, draft: createdDraft };
-    });
-  }
 
   async createAccountAgentForCredential(credentialId: string, inputValue: unknown, now = new Date().toISOString()): Promise<Agent> {
     const input = parseAccountAgentMutation(inputValue, false);
@@ -2090,14 +1872,12 @@ export class MySqlStore {
     }
     const [targetRows] = await connection.execute<AgentIdRow[]>("SELECT agent_id FROM agent_invocation_targets WHERE account_id=? AND target_user_id=? ORDER BY agent_id", [accountId, targetUserId]);
     const [invitationRows] = await connection.execute<InvitationIdRow[]>("SELECT invitation_id FROM account_member_invitations WHERE account_id=? AND invited_by_user_id=? AND status='pending' ORDER BY invitation_id", [accountId, targetUserId]);
-    const [draftRows] = await connection.execute<CountRow[]>("SELECT COUNT(*) AS count FROM agent_builder_drafts WHERE account_id=? AND owner_user_id=?", [accountId, targetUserId]);
     const [sessionRows] = await connection.execute<CountRow[]>("SELECT COUNT(*) AS count FROM account_sessions WHERE account_id=? AND user_id=? AND revoked_at IS NULL AND expires_at>UTC_TIMESTAMP(3)", [accountId, targetUserId]);
     return {
       ownedAgents: agentRows.map((row) => ({ agentId: row.agent_id, name: row.name })),
       ownedRuntimes: [...runtimeMap.values()],
       invocationTargetAgentIds: targetRows.map((row) => row.agent_id),
       pendingInvitationIds: invitationRows.map((row) => row.invitation_id),
-      draftCount: Number(draftRows[0]?.count ?? 0),
       activeSessionCount: Number(sessionRows[0]?.count ?? 0),
     };
   }
@@ -2122,29 +1902,6 @@ export class MySqlStore {
     `, [accountId, runtimeId, accountId, runtimeId]);
     const activeTasks = activeRows.map((row) => ({ taskId: row.task_id, agentId: row.agent_id }));
     return { boundAgentIds: boundRows.map((row) => row.agent_id), activeAgentIds: [...new Set(activeTasks.map((task) => task.agentId))], activeTasks };
-  }
-
-  async #accountAgentDraft(connection: PoolConnection, actor: AccountActorRow, draftId: string, forUpdate = false, now = new Date().toISOString()): Promise<AccountAgentDraftRow> {
-    const [rows] = await connection.execute<AccountAgentDraftRow[]>(`SELECT * FROM agent_builder_drafts WHERE account_id=? AND draft_id=? AND owner_user_id=?${forUpdate ? " FOR UPDATE" : ""}`, [actor.account_id, draftId, actor.user_id]);
-    const row = rows[0];
-    if (!row || Date.parse(toIso(row.expires_at)) <= Date.parse(now)) throw new MySqlPersistenceError("account-agent-draft-not-found");
-    return row;
-  }
-
-  async #validateAccountAgentDraft(connection: PoolConnection, actor: AccountActorRow, draft: AgentDraft): Promise<AgentDraftValidationResult> {
-    let runtime: AgentRuntime | undefined;
-    let boundCount = 0;
-    if (draft.runtimeId) {
-      const [runtimeRows] = await connection.execute<AccountRuntimeRow[]>("SELECT * FROM account_runtimes WHERE account_id=? AND runtime_id=?", [actor.account_id, draft.runtimeId]);
-      if (runtimeRows[0]) runtime = mapAccountRuntime(runtimeRows[0]);
-      const [countRows] = await connection.execute<CountRow[]>("SELECT COUNT(*) AS count FROM account_agents WHERE account_id=? AND runtime_id=? AND archived_at IS NULL", [actor.account_id, draft.runtimeId]);
-      boundCount = Number(countRows[0]?.count ?? 0);
-    }
-    const base = validateAgentDraftForCreate({ principal: { accountId: actor.account_id, userId: actor.user_id, active: true }, draft, ...(runtime ? { runtime } : {}), currentBoundAgentCount: boundCount });
-    const errors = [...base.fieldErrors];
-    try { await this.#validateAccountSkillIds(connection, actor.account_id, draft.runtimeId, draft.configuration.skillIds, draft.configuration.disabledRuntimeSkillIds); }
-    catch { errors.push({ field: "draft", code: "agent-skill-unavailable" }); }
-    return { valid: errors.length === 0, fieldErrors: errors };
   }
 
   async #validateAccountSkillIds(connection: PoolConnection, accountId: string, runtimeId: string | undefined, skillIds: readonly string[], disabledRuntimeSkillIds: readonly string[]): Promise<void> {
@@ -2340,7 +2097,6 @@ interface MemberRemovalSnapshot {
   readonly ownedRuntimes: readonly { readonly runtimeId: string; readonly name: string; readonly boundAgentIds: readonly string[] }[];
   readonly invocationTargetAgentIds: readonly string[];
   readonly pendingInvitationIds: readonly string[];
-  readonly draftCount: number;
   readonly activeSessionCount: number;
 }
 interface AccountRuntimeRow extends RowDataPacket {
@@ -2393,11 +2149,6 @@ interface AccountSelfTestRow extends RowDataPacket {
   self_test_id: string; account_id: string; agent_id: string; created_by_user_id: string;
   requester_principal_id: string; requester_credential_id: string; created_at: string | Date; expires_at: string | Date;
   revoked_at: string | Date | null;
-}
-interface AccountAgentDraftRow extends RowDataPacket {
-  draft_id: string; account_id: string; owner_user_id: string; mode: "blank" | "template" | "ai"; template_id: string | null;
-  state: "active" | "creating" | "failed" | "created"; draft: string | AgentDraft; created_agent_id: string | null;
-  create_idempotency_key: string | null; version: number | string; expires_at: string | Date; created_at: string | Date; updated_at: string | Date;
 }
 interface AccountSkillValidationRow extends RowDataPacket { skill_id: string; origin: "account" | "runtime" | "agent"; runtime_id: string | null }
 interface OwnerLoginRedemptionRow extends RowDataPacket {
@@ -2542,17 +2293,6 @@ function mapAccountA2ATaskRoute(row: AccountA2ATaskRow): AccountA2ATaskRoute {
   };
 }
 
-function mapAccountAgentDraft(row: AccountAgentDraftRow): AgentDraft {
-  const stored = typeof row.draft === "string" ? JSON.parse(row.draft) : row.draft;
-  if (!stored || typeof stored !== "object" || Array.isArray(stored)) return agentDraftSchema.parse(stored);
-  const { invocationTargets: _legacyInvocationTargets, ...draft } = stored as Record<string, unknown>;
-  void _legacyInvocationTargets;
-  return agentDraftSchema.parse({
-    ...draft,
-    ...((draft.permissionMode === "account" || draft.permissionMode === "targeted") ? { permissionMode: "private" } : {}),
-  });
-}
-
 function mapAgentActivity(row: AgentActivityRow): AgentActivity {
   return {
     activityId: row.activity_id, accountId: row.account_id, agentId: row.agent_id, taskId: row.task_id, terminalState: row.terminal_state,
@@ -2660,7 +2400,6 @@ function removalAuditCounts(snapshot: MemberRemovalSnapshot): Readonly<Record<st
     ownedRuntimes: snapshot.ownedRuntimes.length,
     invocationTargets: snapshot.invocationTargetAgentIds.length,
     pendingInvitations: snapshot.pendingInvitationIds.length,
-    drafts: snapshot.draftCount,
     activeSessions: snapshot.activeSessionCount,
   };
 }
@@ -2708,54 +2447,6 @@ interface AccountAgentUpdateMutation extends Omit<AccountAgentMutation, "configu
   readonly expectedVersion: number;
 }
 
-interface AccountAgentDraftMutation {
-  readonly name: string;
-  readonly description: string;
-  readonly avatarUrl?: string;
-  readonly runtimeId?: string;
-  readonly permissionMode: Agent["permissionMode"];
-  readonly configuration: AgentConfiguration;
-  readonly pendingUserText: string;
-  readonly expectedVersion: number;
-}
-
-function parseCreateAgentDraft(value: unknown): { readonly mode: "blank" | "template" | "ai"; readonly templateId?: string } {
-  if (!value || typeof value !== "object" || Array.isArray(value)) throw new MySqlPersistenceError("agent-draft-input-invalid");
-  const body = value as Record<string, unknown>;
-  if (Object.keys(body).some((key) => !["mode", "templateId"].includes(key))) throw new MySqlPersistenceError("agent-draft-input-invalid");
-  const mode = body.mode;
-  if (mode !== "blank" && mode !== "template" && mode !== "ai") throw new MySqlPersistenceError("agent-draft-input-invalid");
-  if (mode === "template" && (typeof body.templateId !== "string" || !body.templateId)) throw new MySqlPersistenceError("agent-draft-input-invalid");
-  if (mode !== "template" && body.templateId !== undefined) throw new MySqlPersistenceError("agent-draft-input-invalid");
-  return { mode, ...(mode === "template" ? { templateId: String(body.templateId) } : {}) };
-}
-
-function parseBuilderTurnStart(value: unknown): { readonly text: string; readonly expectedVersion: number } {
-  if (!value || typeof value !== "object" || Array.isArray(value)) throw new MySqlPersistenceError("agent-builder-input-invalid");
-  const body = value as Record<string, unknown>;
-  if (Object.keys(body).some((key) => !["text", "expectedVersion"].includes(key)) || typeof body.text !== "string" || !body.text.trim() || body.text.length > 20_000 || !Number.isInteger(body.expectedVersion) || Number(body.expectedVersion) < 1) throw new MySqlPersistenceError("agent-builder-input-invalid");
-  return { text: body.text.trim(), expectedVersion: Number(body.expectedVersion) };
-}
-
-function parseAccountAgentDraftMutation(value: unknown): AccountAgentDraftMutation {
-  if (!value || typeof value !== "object" || Array.isArray(value)) throw new MySqlPersistenceError("agent-draft-input-invalid");
-  const body = value as Record<string, unknown>;
-  const allowed = new Set(["name", "description", "avatarUrl", "runtimeId", "permissionMode", "configuration", "pendingUserText", "expectedVersion"]);
-  if (Object.keys(body).some((key) => !allowed.has(key)) || !Number.isInteger(body.expectedVersion) || Number(body.expectedVersion) < 1) throw new MySqlPersistenceError("agent-draft-input-invalid");
-  const parsed = agentDraftSchema.parse({
-    draftId: "draft:validation", accountId: "account:validation", ownerUserId: "human:validation", mode: "blank",
-    name: body.name, description: body.description,
-    ...(typeof body.avatarUrl === "string" && body.avatarUrl ? { avatarUrl: body.avatarUrl } : {}),
-    ...(typeof body.runtimeId === "string" && body.runtimeId ? { runtimeId: body.runtimeId } : {}),
-    permissionMode: body.permissionMode, configuration: body.configuration,
-    pendingUserText: body.pendingUserText, state: "active", createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z", expiresAt: "2026-01-08T00:00:00.000Z", version: 1,
-  });
-  return {
-    name: parsed.name, description: parsed.description, ...(parsed.avatarUrl ? { avatarUrl: parsed.avatarUrl } : {}), ...(parsed.runtimeId ? { runtimeId: parsed.runtimeId } : {}),
-    permissionMode: parsed.permissionMode, configuration: parsed.configuration, pendingUserText: parsed.pendingUserText, expectedVersion: Number(body.expectedVersion),
-  };
-}
-
 function emptyAgentConfiguration(): AgentConfiguration {
   return {
     instructions: "", maxConcurrentTasks: 1, skillIds: [], disabledRuntimeSkillIds: [], environmentVariableNames: [],
@@ -2773,16 +2464,6 @@ function mergeEditableConfiguration(current: AgentConfiguration, update: AgentEd
   if (update.thinkingLevel) merged.thinkingLevel = update.thinkingLevel; else delete merged.thinkingLevel;
   if (update.serviceTier) merged.serviceTier = update.serviceTier; else delete merged.serviceTier;
   return merged;
-}
-
-function resetUnsupportedRuntimeOptions(configuration: AgentConfiguration, runtime: AgentRuntime): AgentConfiguration {
-  const { model, thinkingLevel, serviceTier, ...base } = configuration;
-  return {
-    ...base,
-    ...(model && runtime.capabilities.supportsModelSelection ? { model } : {}),
-    ...(thinkingLevel && runtime.capabilities.supportsThinkingLevel ? { thinkingLevel } : {}),
-    ...(serviceTier && runtime.capabilities.supportsServiceTier ? { serviceTier } : {}),
-  };
 }
 
 function parseAccountAgentMutation(value: unknown, requireVersion: false): AccountAgentMutation;

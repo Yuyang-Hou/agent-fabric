@@ -752,6 +752,13 @@ export const humanFriendshipV11MySqlMigrationStatements = [
   "ALTER TABLE account_agent_a2a_tasks ADD INDEX account_a2a_task_origin_idx (origin_account_id, origin_credential_id, updated_at)",
 ] as const;
 
+/**
+ * Version 12 retires Agent draft persistence at the application boundary.
+ * The empty migration is intentional: legacy tables and rows remain untouched
+ * for binary rollback, while current runtime code performs no reads or writes.
+ */
+export const legacyCreationStateRetirementV12MySqlMigrationStatements = [] as const;
+
 interface MySqlMigrationConnection {
   query(sql: string, values?: unknown[]): Promise<[unknown, unknown]>;
 }

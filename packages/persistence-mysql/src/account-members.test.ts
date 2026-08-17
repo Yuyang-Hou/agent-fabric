@@ -163,7 +163,6 @@ describe("Account member management persistence", () => {
       if (sql.includes("FROM account_runtimes r LEFT JOIN account_agents")) return [[{ runtime_id: "runtime:bob", name: "Bob Codex", agent_id: "agent:bob" }], []];
       if (sql.startsWith("SELECT agent_id FROM agent_invocation_targets")) return [[{ agent_id: "agent:shared" }], []];
       if (sql.startsWith("SELECT invitation_id FROM account_member_invitations")) return [[{ invitation_id: "account-invitation:bob-created" }], []];
-      if (sql.includes("COUNT(*) AS count FROM agent_builder_drafts")) return [[{ count: 2 }], []];
       if (sql.includes("COUNT(*) AS count FROM account_sessions")) return [[{ count: 1 }], []];
       if (sql.includes("INSERT INTO account_member_removal_plans")) { planValues = values ?? []; return [{ affectedRows: 1 }, []]; }
       if (sql.includes("INSERT INTO audit_events")) { auditValues.push(values ?? []); return [{ affectedRows: 1 }, []]; }
@@ -178,7 +177,7 @@ describe("Account member management persistence", () => {
       accountId: "account:one", userId: "human:bob", expectedMemberVersion: 3,
       ownedAgents: [{ agentId: "agent:bob", name: "Bob Helper" }],
       ownedRuntimes: [{ runtimeId: "runtime:bob", name: "Bob Codex", boundAgentIds: ["agent:bob"] }],
-      invocationTargetAgentIds: ["agent:shared"], pendingInvitationIds: ["account-invitation:bob-created"], draftCount: 2, activeSessionCount: 1,
+      invocationTargetAgentIds: ["agent:shared"], pendingInvitationIds: ["account-invitation:bob-created"], activeSessionCount: 1,
     });
     await expect(store.removeAccountMemberForCredential("credential:owner", "human:bob", { planId: impact.planId, expectedMemberVersion: 3, agentDispositions: [], runtimeDispositions: [] }, "2026-08-13T00:01:00.000Z")).rejects.toThrow("member-removal-agent-disposition-required");
 

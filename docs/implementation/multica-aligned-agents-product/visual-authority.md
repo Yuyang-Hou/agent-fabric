@@ -21,7 +21,7 @@ The external files are read-only research evidence. They are not copied into, im
 | Login | Quiet full-height neutral field; one centered compact login panel; Agent Fabric identity, short Account purpose, one Google action, pending/error below the action. | signed out, signing in, expired, retryable failure |
 | Shell | macOS title-bar clearance; compact left rail; one inset white canvas with a continuous header; exactly Agents, Runtimes and Members. | online, reconnecting, offline, session expired, narrow rail/header |
 | Agents | Header and New Agent at top; search + mine/all/archived scopes; filter/sort/columns on the right; dense ruled rows with two-line identity and stable Status/Owner/Access/Runtime/Recent columns. | typical, loading, empty, no-match, error, archived, needs-runtime, offline, batch selection |
-| Create | A separate method chooser; blank/template/AI are separate routes. Manual mode uses section headings and aligned setting rows with a sticky Create action. Builder uses conversation on the left and live draft on the right. | chooser, manual, template, AI pending/error, restored draft, dirty exit |
+| Create | A separate method chooser; blank/template/AI are separate routes. Manual mode uses section headings and aligned setting rows with a sticky Create action. Builder uses local conversation on the left and live preview on the right. | chooser, manual, template, AI pending/error, local validation, discarded-on-exit |
 | Agent detail | Breadcrumb + identity/status header; Overview/Activity/Capabilities/Settings intent tabs; overview content plus a bounded facts rail; settings use label/description/control rows. | editable, read-only, dirty, secret-redacted, unsupported, archived, unbound, offline |
 | Runtimes | Same collection language as Agents; compact runtime row; detail identity header and structured settings; deletion uses a focused impact dialog. | ready, checking, auth-required, unavailable, offline, delete impact |
 | Members | Same collection language; invitation form above dense member/pending rows; roles are quiet chips; removal uses a focused impact dialog. | members, pending invitation, forbidden, expired invite, removal impact |
@@ -34,7 +34,7 @@ The external files are read-only research evidence. They are not copied into, im
 | Quiet macOS shell and inset canvas | Preserve hierarchy, neutral surfaces and toolbar clearance | No Workspace switcher, browser-like tabs or unrelated global actions |
 | Compact grouped navigation | Preserve row density, monochrome icons and restrained selected state | Exactly three destinations: Agents, Runtimes, Members |
 | Dense collection rows | Preserve two-line identity, aligned operational columns and sparse status color | Agent Fabric uses Account access and only real Codex Runtime data |
-| Separate creation modes | Preserve dedicated chooser and progressive disclosure | Add a Template route and use Agent Fabric draft validation/autosave |
+| Separate creation modes | Preserve dedicated chooser and progressive disclosure | Add a Template route; keep Builder state local and send only one final create request |
 | Stable detail identity header and intent tabs | Preserve scan order, content density and settings-row grammar | Activity replaces Multica work assignment; no DM/assign-work controls |
 | Runtime and member administration share the system | Preserve collection/detail/impact-dialog primitives | Account replaces Workspace; credentials never enter Renderer fields |
 

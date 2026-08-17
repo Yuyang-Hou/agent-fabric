@@ -39,7 +39,7 @@ Only the intended authenticated Human SHALL accept or reject a pending friend in
 - **THEN** no additional Friendship or Account mutation occurs and the caller receives a bounded non-leaking state error
 
 ### Requirement: Friendship is symmetric and revocation removes future Agent access
-An active Friendship SHALL be a unique symmetric relationship between two Human Principals. Either Human SHALL remove it without transferring or deleting either user's Account, Agent, Runtime, Skill, draft or configuration; removal MUST deny future friend-derived Agent discovery, invocation and Task reads.
+An active Friendship SHALL be a unique symmetric relationship between two Human Principals. Either Human SHALL remove it without transferring or deleting either user's Account, Agent, Runtime, Skill or configuration; removal MUST deny future friend-derived Agent discovery, invocation and Task reads.
 
 #### Scenario: Either friend removes the relationship
 - **WHEN** either Human confirms friend removal

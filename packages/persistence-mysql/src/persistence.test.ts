@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import { accountAgentA2AMySqlMigrationStatements, accountAgentCreationV8MySqlMigrationStatements, accountAgentMySqlMigrationStatements, accountRuntimeDeletionV7MySqlMigrationStatements, accountSelfTestV10MySqlMigrationStatements, applyHumanFriendshipV11Migration, humanFriendshipV11MySqlMigrationStatements, initialMySqlMigrationStatements, legacyMigrationRecoveryV9MySqlMigrationStatements, onboardingMySqlMigrationStatements, personalAgentMySqlMigrationStatements, selfServiceMySqlMigrationStatements } from "./migration.js";
+import { accountAgentA2AMySqlMigrationStatements, accountAgentCreationV8MySqlMigrationStatements, accountAgentMySqlMigrationStatements, accountRuntimeDeletionV7MySqlMigrationStatements, accountSelfTestV10MySqlMigrationStatements, applyHumanFriendshipV11Migration, humanFriendshipV11MySqlMigrationStatements, initialMySqlMigrationStatements, legacyCreationStateRetirementV12MySqlMigrationStatements, legacyMigrationRecoveryV9MySqlMigrationStatements, onboardingMySqlMigrationStatements, personalAgentMySqlMigrationStatements, selfServiceMySqlMigrationStatements } from "./migration.js";
 import { hashCredential, MySqlStore } from "./store.js";
 
 describe("MySQL persistence boundary", () => {
   const migrationSql = initialMySqlMigrationStatements.join("\n");
+
+  it("retires Agent draft persistence without destructive schema or data statements", () => {
+    expect(legacyCreationStateRetirementV12MySqlMigrationStatements).toEqual([]);
+  });
 
   it("contains every governance table and no raw content columns", () => {
     for (const table of ["fabric_instances", "principals", "credentials", "audit_events"]) {

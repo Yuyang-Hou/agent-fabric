@@ -60,6 +60,7 @@ describe("Account Agents API", () => {
       }
       expect(store.createAccountAgentForCredential).toHaveBeenCalledTimes(3);
       expect(new Set(createdAgentIds)).toEqual(new Set(["agent:one", "agent:two", "agent:three"]));
+      expect((await fetch(`${server.address()}/v1/agent-drafts`, { headers })).status).toBe(404);
 
       const cursor = Buffer.from(JSON.stringify({ sortValue: "9", id: "agent:cursor" }), "utf8").toString("base64url");
       const list = await fetch(`${server.address()}/v1/agents?scope=mine&q=agent&availability=online,unstable&runtimeId=runtime:one&ownerUserId=human:owner&model=gpt-5&access=owner&sort=runs&limit=25&cursor=${cursor}`, { headers });

@@ -1,5 +1,7 @@
+import { randomUUID } from "node:crypto";
+
 import type { AgentFabricClient } from "@agent-fabric/client";
-import { accountResourceInvalidationSchema, type AccountResourceInvalidation, type AccountSession, type AgentCatalogQuery } from "@agent-fabric/account-agent-domain";
+import { accountResourceInvalidationSchema, validateLocalAgentCreation, type AccountResourceInvalidation, type AccountSession, type AgentBuilderProposal, type AgentCatalogQuery } from "@agent-fabric/account-agent-domain";
 
 import {
   accountProductRendererCommandResultSchema,
@@ -8,6 +10,7 @@ import {
   type AccountProductRendererCommand,
   type AccountProductRendererCommandResult,
   type AccountProductRendererSnapshot,
+  type AgentCreationSession,
 } from "./ipc.js";
 
 const defaultCatalogQuery: AgentCatalogQuery = {
@@ -24,14 +27,12 @@ const defaultCatalogQuery: AgentCatalogQuery = {
 type AccountProductCloud = Pick<AgentFabricClient,
   | "archiveAgent"
   | "batchAgentLifecycle"
+  | "createAgent"
   | "createFriendInvitation"
-  | "createAgentDraft"
-  | "createAgentFromDraft"
   | "completeLegacyAgentMigrationRecovery"
   | "deleteAccountRuntime"
   | "getAccountRuntime"
   | "getAgentDetail"
-  | "getAgentDraft"
   | "getLegacyAgentMigrationRecovery"
   | "listIncomingFriendInvitations"
   | "listOutgoingFriendInvitations"
@@ -39,7 +40,6 @@ type AccountProductCloud = Pick<AgentFabricClient,
   | "listAccountRuntimes"
   | "listAgentActivities"
   | "listAgentCatalog"
-  | "listAgentDrafts"
   | "listAgentSkills"
   | "listAgentTemplates"
   | "logout"
@@ -51,8 +51,6 @@ type AccountProductCloud = Pick<AgentFabricClient,
   | "acceptFriendInvitation"
   | "rejectFriendInvitation"
   | "revokeFriendInvitation"
-  | "runAgentBuilderTurn"
-  | "saveAgentDraft"
   | "updateAccountRuntime"
   | "updateAgent"
   | "updateAgentPrivateConfiguration"
@@ -95,6 +93,8 @@ export class AccountProductHost {
   constructor(readonly authentication: AccountProductAuthenticationPort, readonly options?: {
     readonly diagnostic?: (message: string) => void;
     readonly refreshLocalRuntime?: (runtimeId: string, expectedVersion: number) => Promise<AccountProductRendererSnapshot["runtimes"][number]>;
+    readonly runLocalBuilderTurn?: (input: { readonly runtimeId: string; readonly text: string; readonly configuration: AgentCreationSession["configuration"] }) => Promise<{ readonly proposal: AgentBuilderProposal; readonly assistantText: string }>;
+    readonly closeLocalBuilder?: () => Promise<void>;
   }) {}
 
   snapshot(): AccountProductRendererSnapshot { return this.#snapshot; }
@@ -102,6 +102,23 @@ export class AccountProductHost {
   subscribe(listener: (snapshot: AccountProductRendererSnapshot) => void): () => void {
     this.#listeners.add(listener);
     return () => this.#listeners.delete(listener);
+  }
+
+  discardCreationSession(): Promise<void> {
+    const work = this.#queue.then(async () => {
+      if (!this.#snapshot.creationSession && !isCreationRoute(this.#snapshot.route.name)) return;
+      await this.options?.closeLocalBuilder?.();
+      this.#replace({
+        ...this.#snapshot,
+        ...(isCreationRoute(this.#snapshot.route.name) ? { route: { name: "agents" } as const } : {}),
+        creationSession: undefined,
+        creationValidation: undefined,
+        refreshing: false,
+        errorCode: undefined,
+      });
+    });
+    this.#queue = work.then(() => undefined, () => undefined);
+    return work;
   }
 
   async restore(): Promise<AccountProductRendererSnapshot> {
@@ -154,7 +171,7 @@ export class AccountProductHost {
       }
     }
     if (command.type === "logout") {
-      try { await this.#authenticated?.client.logout(); }
+      try { await this.options?.closeLocalBuilder?.(); await this.#authenticated?.client.logout(); }
       finally {
         await this.authentication.clear();
         this.#unsubscribeInvalidations?.();
@@ -173,9 +190,11 @@ export class AccountProductHost {
     try {
       switch (command.type) {
         case "navigate":
+          if (isCreationRoute(this.#snapshot.route.name) && !isCreationRoute(command.route.name)) await this.options?.closeLocalBuilder?.();
           return snapshotResult(this.#replace({
             ...this.#snapshot,
             route: command.route,
+            ...(!isCreationRoute(command.route.name) ? { creationSession: undefined, creationValidation: undefined } : {}),
             ...(command.route.name === "agents" ? { detail: undefined, activities: [], skills: undefined, agentLoad: undefined } : {}),
             ...(command.route.name === "runtimes" ? { runtimeDetail: undefined, runtimeDeletionImpact: undefined } : {}),
             refreshing: false,
@@ -212,37 +231,53 @@ export class AccountProductHost {
           this.#cacheAgentDetail(command.agentId, detail);
           return snapshotResult(this.#replace({ ...this.#snapshot, detail, refreshing: false }));
         }
-        case "draft-create": {
-          const draft = await client.createAgentDraft({ mode: command.mode, ...(command.templateId ? { templateId: command.templateId } : {}) });
-          return snapshotResult(this.#replace({ ...this.#snapshot, route: command.mode === "ai" ? { name: "agent-create-ai", draftId: draft.draftId } : { name: "agent-create-manual", draftId: draft.draftId }, activeDraft: draft, draftValidation: undefined, drafts: upsert(this.#snapshot.drafts, draft, "draftId"), refreshing: false }));
+        case "creation-start": {
+          await this.options?.closeLocalBuilder?.();
+          const creationSession = createLocalCreationSession(command, this.#snapshot);
+          return snapshotResult(this.#replace({ ...this.#snapshot, route: command.mode === "ai" ? { name: "agent-create-ai" } : { name: "agent-create-manual" }, creationSession, creationValidation: undefined, refreshing: false }));
         }
-        case "draft-open": {
-          const draft = await client.getAgentDraft(command.draftId);
-          return snapshotResult(this.#replace({ ...this.#snapshot, route: draft.mode === "ai" ? { name: "agent-create-ai", draftId: draft.draftId } : { name: "agent-create-manual", draftId: draft.draftId }, activeDraft: draft, draftValidation: undefined, refreshing: false }));
+        case "creation-update": {
+          const current = requireCreationSession(this.#snapshot);
+          if (current.runtimeId !== command.update.runtimeId && current.mode === "ai") await this.options?.closeLocalBuilder?.();
+          const creationSession = { ...current, ...command.update, ...(current.mode === "ai" ? { builder: current.builder } : {}) };
+          return snapshotResult(this.#replace({ ...this.#snapshot, creationSession, creationValidation: undefined, refreshing: false }));
         }
-        case "draft-save": {
-          const draft = await client.saveAgentDraft(command.draftId, {
-            name: command.update.name,
-            description: command.update.description,
-            ...(command.update.avatarUrl ? { avatarUrl: command.update.avatarUrl } : {}),
-            ...(command.update.runtimeId ? { runtimeId: command.update.runtimeId } : {}),
-            permissionMode: command.update.permissionMode,
-            configuration: command.update.configuration,
-            pendingUserText: command.update.pendingUserText,
-            expectedVersion: command.update.expectedVersion,
+        case "builder-turn": {
+          const current = requireCreationSession(this.#snapshot);
+          if (current.mode !== "ai" || !current.builder) throw new AccountProductHostError("builder-session-required");
+          const runtime = this.#snapshot.runtimes.find((item) => item.runtimeId === current.runtimeId);
+          if (!runtime || runtime.health !== "ready" || this.#snapshot.localServices.runtime.state !== "ready" || this.#snapshot.localServices.runtime.runtimeId !== runtime.runtimeId) throw new AccountProductHostError("runtime-not-ready");
+          const runLocalBuilderTurn = this.options?.runLocalBuilderTurn;
+          if (!runLocalBuilderTurn) throw new AccountProductHostError("builder-runtime-unavailable");
+          const userMessage = { messageId: `builder-message:${randomUUID()}`, role: "user" as const, text: command.text };
+          const inFlight: AgentCreationSession = { ...current, builder: { state: "in_flight", conversation: [...current.builder.conversation, userMessage] } };
+          this.#replace({ ...this.#snapshot, creationSession: inFlight, creationValidation: undefined });
+          try {
+            const result = await runLocalBuilderTurn({ runtimeId: runtime.runtimeId, text: command.text, configuration: current.configuration });
+            const creationSession = applyBuilderProposal(inFlight, result.proposal, result.assistantText);
+            return snapshotResult(this.#replace({ ...this.#snapshot, creationSession, refreshing: false }));
+          } catch (error) {
+            const code = safeErrorCode(error);
+            const creationSession: AgentCreationSession = { ...inFlight, builder: { state: "failed", conversation: inFlight.builder?.conversation ?? [], recoverableErrorCode: code } };
+            this.#replace({ ...this.#snapshot, creationSession, refreshing: false, errorCode: code });
+            throw error;
+          }
+        }
+        case "creation-submit": {
+          const creationSession = requireCreationSession(this.#snapshot);
+          const runtime = this.#snapshot.runtimes.find((item) => item.runtimeId === creationSession.runtimeId);
+          const validation = validateLocalAgentCreation({ creation: creationSession, ...(runtime ? { runtime } : {}) });
+          if (!validation.valid) return snapshotResult(this.#replace({ ...this.#snapshot, creationValidation: validation, refreshing: false }));
+          const agent = await client.createAgent({
+            name: creationSession.name.trim(), description: creationSession.description,
+            ...(creationSession.avatarUrl ? { avatarUrl: creationSession.avatarUrl } : {}),
+            ...(creationSession.runtimeId ? { runtimeId: creationSession.runtimeId } : {}),
+            permissionMode: creationSession.permissionMode, configuration: creationSession.configuration,
           });
-          return snapshotResult(this.#replace({ ...this.#snapshot, activeDraft: draft, draftValidation: undefined, drafts: upsert(this.#snapshot.drafts, draft, "draftId"), refreshing: false }));
-        }
-        case "draft-builder-turn": {
-          const draft = await client.runAgentBuilderTurn(command.draftId, { text: command.text, expectedVersion: command.expectedVersion });
-          return snapshotResult(this.#replace({ ...this.#snapshot, activeDraft: draft, drafts: upsert(this.#snapshot.drafts, draft, "draftId"), refreshing: false }));
-        }
-        case "draft-create-agent": {
-          const result = await client.createAgentFromDraft(command.draftId, { expectedVersion: command.expectedVersion, idempotencyKey: command.idempotencyKey });
-          if (result.status === "validation_failed") return snapshotResult(this.#replace({ ...this.#snapshot, activeDraft: result.draft, draftValidation: result.validation, drafts: upsert(this.#snapshot.drafts, result.draft, "draftId"), refreshing: false }));
-          this.#replace({ ...this.#snapshot, route: { name: "agent-detail", agentId: result.agent.agentId, section: "overview" }, activeDraft: undefined, draftValidation: undefined, drafts: this.#snapshot.drafts.filter((draft) => draft.draftId !== command.draftId), refreshing: false });
-          const detail = await client.getAgentDetail(result.agent.agentId);
-          this.#cacheAgentDetail(result.agent.agentId, detail);
+          await this.options?.closeLocalBuilder?.();
+          this.#replace({ ...this.#snapshot, route: { name: "agent-detail", agentId: agent.agentId, section: "overview" }, creationSession: undefined, creationValidation: undefined, refreshing: false });
+          const detail = await client.getAgentDetail(agent.agentId);
+          this.#cacheAgentDetail(agent.agentId, detail);
           return snapshotResult(this.#replace({ ...this.#snapshot, detail }));
         }
         case "runtime-open":
@@ -397,18 +432,18 @@ export class AccountProductHost {
   }
 
   async #hydrate(authenticated: AccountProductAuthenticatedSession): Promise<AccountProductRendererSnapshot> {
+    await this.options?.closeLocalBuilder?.();
     this.#unsubscribeInvalidations?.();
     this.#unsubscribeInvalidations = undefined;
     this.#clearAgentCache();
     this.#authenticated = authenticated;
-    const [catalog, runtimes, friends, incomingFriendInvitations, outgoingFriendInvitations, templates, drafts, legacyRecovery] = await Promise.all([
+    const [catalog, runtimes, friends, incomingFriendInvitations, outgoingFriendInvitations, templates, legacyRecovery] = await Promise.all([
       this.#bootstrap("agents", authenticated.client.listAgentCatalog(defaultCatalogQuery)),
       this.#bootstrap("runtimes", authenticated.client.listAccountRuntimes()),
       this.#bootstrap("friends", authenticated.client.listFriends()),
       this.#bootstrap("invitations", authenticated.client.listIncomingFriendInvitations()),
       this.#bootstrap("invitations", authenticated.client.listOutgoingFriendInvitations()),
       this.#bootstrap("templates", authenticated.client.listAgentTemplates()),
-      this.#bootstrap("drafts", authenticated.client.listAgentDrafts()),
       this.#bootstrap("migration", authenticated.client.getLegacyAgentMigrationRecovery()),
     ]);
     const snapshot = this.#replace({
@@ -422,7 +457,7 @@ export class AccountProductHost {
         expiresAt: authenticated.session.expiresAt,
       },
       route: { name: "agents" }, connection: "online", localServices: authenticated.localServices ?? inactiveLocalServices(), catalog,
-      activities: [], templates: [...templates], drafts: [...drafts], runtimes: runtimes as AccountProductRendererSnapshot["runtimes"], friends: [...friends], incomingFriendInvitations: [...incomingFriendInvitations], outgoingFriendInvitations: [...outgoingFriendInvitations],
+      activities: [], templates: [...templates], runtimes: runtimes as AccountProductRendererSnapshot["runtimes"], friends: [...friends], incomingFriendInvitations: [...incomingFriendInvitations], outgoingFriendInvitations: [...outgoingFriendInvitations],
       legacyRecovery, loading: false, refreshing: false,
     });
     this.#unsubscribeInvalidations = authenticated.subscribeInvalidations?.(
@@ -432,7 +467,7 @@ export class AccountProductHost {
     return snapshot;
   }
 
-  async #bootstrap<T>(stage: "agents" | "runtimes" | "friends" | "invitations" | "templates" | "drafts" | "migration", work: Promise<T>): Promise<T> {
+  async #bootstrap<T>(stage: "agents" | "runtimes" | "friends" | "invitations" | "templates" | "migration", work: Promise<T>): Promise<T> {
     try { return await work; }
     catch (error) {
       this.options?.diagnostic?.(`account-login-bootstrap:${stage}:${safeDiagnosticError(error)}`);
@@ -536,6 +571,59 @@ export class AccountProductHost {
   }
 }
 
+function createLocalCreationSession(
+  command: Extract<AccountProductRendererCommand, { type: "creation-start" }>,
+  snapshot: AccountProductRendererSnapshot,
+): AgentCreationSession {
+  const template = command.mode === "template" ? snapshot.templates.find((item) => item.templateId === command.templateId) : undefined;
+  if (command.mode === "template" && !template) throw new AccountProductHostError("agent-template-not-found");
+  const localRuntimeId = snapshot.localServices.runtime.state === "ready" ? snapshot.localServices.runtime.runtimeId : undefined;
+  const runtime = snapshot.runtimes.find((item) => item.runtimeId === localRuntimeId && item.health === "ready");
+  return {
+    mode: command.mode,
+    ...(template ? { templateId: template.templateId } : {}),
+    name: template?.name ?? "",
+    description: template?.description ?? "",
+    ...(runtime ? { runtimeId: runtime.runtimeId } : {}),
+    permissionMode: "private",
+    configuration: {
+      instructions: template?.instructions ?? "",
+      maxConcurrentTasks: 1,
+      skillIds: [], disabledRuntimeSkillIds: [], environmentVariableNames: [], customArguments: [], runtimeConfiguration: {}, mcpConnections: [], integrations: [],
+    },
+    ...(command.mode === "ai" ? { builder: { state: "idle" as const, conversation: [] } } : {}),
+  };
+}
+
+function requireCreationSession(snapshot: AccountProductRendererSnapshot): AgentCreationSession {
+  if (!snapshot.creationSession) throw new AccountProductHostError("creation-session-required");
+  return snapshot.creationSession;
+}
+
+function applyBuilderProposal(session: AgentCreationSession, proposal: AgentBuilderProposal, assistantText: string): AgentCreationSession {
+  const configuration = {
+    ...session.configuration,
+    instructions: proposal.instructions,
+    ...(proposal.model ? { model: proposal.model } : { model: undefined }),
+    ...(proposal.thinkingLevel ? { thinkingLevel: proposal.thinkingLevel } : { thinkingLevel: undefined }),
+    ...(proposal.serviceTier ? { serviceTier: proposal.serviceTier } : { serviceTier: undefined }),
+  };
+  return {
+    ...session,
+    name: proposal.name,
+    description: proposal.description,
+    configuration,
+    builder: {
+      state: "idle",
+      conversation: [...(session.builder?.conversation ?? []), { messageId: `builder-message:${randomUUID()}`, role: "assistant", text: assistantText }],
+    },
+  };
+}
+
+function isCreationRoute(name: AccountProductRendererSnapshot["route"]["name"]): boolean {
+  return name === "agent-create-manual" || name === "agent-create-ai";
+}
+
 export class AccountProductHostError extends Error {
   constructor(readonly code: string) {
     super(code);
@@ -547,7 +635,7 @@ function signedOutSnapshot(reason: "initial" | "logged_out" | "expired" | "revok
   return accountProductRendererSnapshotSchema.parse({
     session: { state: "signed-out", reason }, route: { name: "agents" }, connection: "offline",
     localServices: inactiveLocalServices(),
-    activities: [], templates: [], drafts: [], runtimes: [], friends: [], incomingFriendInvitations: [], outgoingFriendInvitations: [], legacyRecovery: { state: "not_required" },
+    activities: [], templates: [], runtimes: [], friends: [], incomingFriendInvitations: [], outgoingFriendInvitations: [], legacyRecovery: { state: "not_required" },
     loading, refreshing: false,
   });
 }

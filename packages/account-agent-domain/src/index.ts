@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { canBindRuntime, type AgentAccessPrincipal } from "./authorization.js";
 
 const identifierSchema = z.string().trim().min(1).max(191).regex(/^[A-Za-z0-9][A-Za-z0-9._:-]*$/u);
 const isoTimestampSchema = z.iso.datetime({ offset: true });
@@ -158,7 +157,6 @@ export const memberRemovalImpactSchema = z.strictObject({
   ownedRuntimes: z.array(z.strictObject({ runtimeId: identifierSchema, name: boundedText(120), boundAgentIds: z.array(identifierSchema).max(500) })).max(100),
   invocationTargetAgentIds: z.array(identifierSchema).max(500),
   pendingInvitationIds: z.array(identifierSchema).max(500),
-  draftCount: z.number().int().min(0),
   activeSessionCount: z.number().int().min(0),
   expiresAt: isoTimestampSchema,
 });
@@ -343,6 +341,25 @@ export const agentSchema = z.strictObject({
   }
 });
 
+export const agentCreationInputSchema = z.strictObject({
+  name: boundedText(120),
+  description: optionalBoundedText(1_000),
+  avatarUrl: z.url().optional(),
+  runtimeId: identifierSchema.optional(),
+  permissionMode: permissionModeSchema,
+  configuration: agentConfigurationSchema,
+});
+
+export const agentCreationFieldErrorSchema = z.strictObject({
+  field: z.enum(["name", "runtimeId", "model", "thinkingLevel", "serviceTier", "environment", "customArguments", "runtimeConfiguration", "configuration"]),
+  code: identifierSchema,
+});
+
+export const agentCreationValidationResultSchema = z.strictObject({
+  valid: z.boolean(),
+  fieldErrors: z.array(agentCreationFieldErrorSchema).max(50),
+});
+
 export const agentDetailProjectionSchema = z.strictObject({
   identity: z.strictObject({
     agentId: identifierSchema, accountId: identifierSchema, ownerUserId: identifierSchema, name: boundedText(120), description: optionalBoundedText(1_000),
@@ -431,61 +448,6 @@ export const agentActivitySchema = z.strictObject({
   durationMs: z.number().int().min(0),
 });
 
-export const agentDraftSchema = z.strictObject({
-  draftId: identifierSchema,
-  accountId: identifierSchema,
-  ownerUserId: identifierSchema,
-  mode: z.enum(["blank", "template", "ai"]),
-  templateId: identifierSchema.optional(),
-  name: optionalBoundedText(120),
-  description: optionalBoundedText(1_000),
-  avatarUrl: z.url().optional(),
-  runtimeId: identifierSchema.optional(),
-  permissionMode: permissionModeSchema,
-  configuration: agentConfigurationSchema,
-  pendingUserText: optionalBoundedText(20_000),
-  builderSession: z.strictObject({
-    state: z.enum(["idle", "in_flight", "failed"]),
-    inFlight: z.strictObject({ turnId: identifierSchema, baseDraftVersion: versionSchema, startedAt: isoTimestampSchema }).optional(),
-    conversation: z.array(z.strictObject({
-      messageId: identifierSchema,
-      role: z.enum(["user", "assistant"]),
-      text: boundedText(20_000),
-      createdAt: isoTimestampSchema,
-    })).max(200),
-    lastAppliedProposal: z.strictObject({ proposalId: identifierSchema, draftVersion: versionSchema, appliedAt: isoTimestampSchema }).optional(),
-    recoverableErrorCode: identifierSchema.optional(),
-  }).optional(),
-  state: z.enum(["active", "creating", "failed", "created"]),
-  createdAgentId: identifierSchema.optional(),
-  createdAt: isoTimestampSchema,
-  updatedAt: isoTimestampSchema,
-  expiresAt: isoTimestampSchema,
-  version: versionSchema,
-}).superRefine((draft, context) => {
-  if (draft.mode === "template" && !draft.templateId) context.addIssue({ code: "custom", message: "template-draft-requires-template-id" });
-  if (draft.mode === "ai" && !draft.builderSession) context.addIssue({ code: "custom", message: "ai-draft-requires-builder-session" });
-  if (draft.mode !== "ai" && draft.builderSession) context.addIssue({ code: "custom", message: "non-ai-draft-forbids-builder-session" });
-  if (draft.builderSession && (draft.builderSession.state === "in_flight") !== Boolean(draft.builderSession.inFlight)) context.addIssue({ code: "custom", message: "builder-in-flight-fields-must-pair" });
-  if (draft.state === "created" && !draft.createdAgentId) context.addIssue({ code: "custom", message: "created-draft-requires-agent-id" });
-});
-
-export const agentDraftFieldErrorSchema = z.strictObject({
-  field: z.enum(["name", "runtimeId", "model", "thinkingLevel", "serviceTier", "environment", "customArguments", "runtimeConfiguration", "access", "templateId", "draft"]),
-  code: identifierSchema,
-});
-
-export const agentDraftValidationResultSchema = z.strictObject({
-  valid: z.boolean(),
-  fieldErrors: z.array(agentDraftFieldErrorSchema).max(50),
-});
-
-export const createAgentFromDraftCommandSchema = z.strictObject({
-  draftId: identifierSchema,
-  expectedVersion: versionSchema,
-  idempotencyKey: z.string().regex(/^[A-Za-z0-9:_-]{16,191}$/u),
-});
-
 export const agentTemplateSchema = z.strictObject({
   templateId: identifierSchema,
   name: boundedText(120),
@@ -502,6 +464,20 @@ export const agentBuilderProposalSchema = z.strictObject({
   thinkingLevel: thinkingLevelSchema.optional(),
   serviceTier: serviceTierSchema.optional(),
 });
+
+export function validateLocalAgentCreation(input: {
+  readonly creation: Omit<AgentCreationInput, "name"> & { readonly name: string };
+  readonly runtime?: AgentRuntime;
+}): AgentCreationValidationResult {
+  const errors: AgentCreationValidationResult["fieldErrors"][number][] = [];
+  if (!input.creation.name.trim()) errors.push({ field: "name", code: "agent-name-required" });
+  if (!input.creation.runtimeId || !input.runtime || input.runtime.runtimeId !== input.creation.runtimeId || input.runtime.health !== "ready") {
+    errors.push({ field: "runtimeId", code: "runtime-required" });
+  } else {
+    errors.push(...validateConfigurationForRuntime(input.creation.configuration, input.runtime));
+  }
+  return agentCreationValidationResultSchema.parse({ valid: errors.length === 0, fieldErrors: errors });
+}
 
 export const agentCatalogIdentitySchema = z.strictObject({
   agentId: identifierSchema,
@@ -695,8 +671,8 @@ export function findApprovedAgentTemplate(templateId: string | undefined): Agent
   return approvedAgentTemplates.find((template) => template.templateId === templateId);
 }
 
-export function validateConfigurationForRuntime(configuration: AgentConfiguration, runtime: AgentRuntime): readonly AgentDraftValidationResult["fieldErrors"][number][] {
-  const errors: Array<AgentDraftValidationResult["fieldErrors"][number]> = [];
+export function validateConfigurationForRuntime(configuration: AgentConfiguration, runtime: AgentRuntime): readonly AgentCreationValidationResult["fieldErrors"][number][] {
+  const errors: Array<AgentCreationValidationResult["fieldErrors"][number]> = [];
   const model = configuration.model ? runtime.capabilities.modelCatalog?.find((item) => item.model === configuration.model) : undefined;
   if (configuration.model && !runtime.capabilities.supportsModelSelection) errors.push({ field: "model", code: "runtime-model-selection-unsupported" });
   else if (configuration.model && runtime.capabilities.modelCatalog && !model) errors.push({ field: "model", code: "runtime-model-unsupported" });
@@ -707,29 +683,10 @@ export function validateConfigurationForRuntime(configuration: AgentConfiguratio
   if (configuration.environmentVariableNames.length && !runtime.capabilities.supportsEnvironment) errors.push({ field: "environment", code: "runtime-environment-unsupported" });
   if (configuration.customArguments.length && !runtime.capabilities.supportsCustomArguments) errors.push({ field: "customArguments", code: "runtime-custom-arguments-unsupported" });
   if (Object.keys(configuration.runtimeConfiguration).length && !runtime.capabilities.supportsRuntimeConfiguration) errors.push({ field: "runtimeConfiguration", code: "runtime-configuration-unsupported" });
-  if (configuration.mcpConnections.length && !runtime.capabilities.supportsMcpConfiguration) errors.push({ field: "draft", code: "runtime-mcp-unsupported" });
-  if (configuration.integrations.some((integration) => !runtime.capabilities.integrationProviders?.includes(integration.provider))) errors.push({ field: "draft", code: "runtime-integration-unsupported" });
-  if ((configuration.skillIds.length || configuration.disabledRuntimeSkillIds.length) && !runtime.capabilities.supportsSkills) errors.push({ field: "draft", code: "runtime-skills-unsupported" });
+  if (configuration.mcpConnections.length && !runtime.capabilities.supportsMcpConfiguration) errors.push({ field: "configuration", code: "runtime-mcp-unsupported" });
+  if (configuration.integrations.some((integration) => !runtime.capabilities.integrationProviders?.includes(integration.provider))) errors.push({ field: "configuration", code: "runtime-integration-unsupported" });
+  if ((configuration.skillIds.length || configuration.disabledRuntimeSkillIds.length) && !runtime.capabilities.supportsSkills) errors.push({ field: "configuration", code: "runtime-skills-unsupported" });
   return errors;
-}
-
-export function validateAgentDraftForCreate(input: {
-  readonly principal: AgentAccessPrincipal;
-  readonly draft: AgentDraft;
-  readonly runtime?: AgentRuntime;
-  readonly currentBoundAgentCount: number;
-}): AgentDraftValidationResult {
-  const errors: Array<AgentDraftValidationResult["fieldErrors"][number]> = [];
-  if (!input.draft.name.trim()) errors.push({ field: "name", code: "agent-name-required" });
-  if (!input.draft.runtimeId || !input.runtime || input.runtime.runtimeId !== input.draft.runtimeId) {
-    errors.push({ field: "runtimeId", code: "runtime-required" });
-  } else {
-    const binding = canBindRuntime(input.principal, input.runtime, input.currentBoundAgentCount);
-    if (!binding.allowed) errors.push({ field: "runtimeId", code: binding.code });
-    errors.push(...validateConfigurationForRuntime(input.draft.configuration, input.runtime));
-  }
-  if (input.draft.mode === "template" && !findApprovedAgentTemplate(input.draft.templateId)) errors.push({ field: "templateId", code: "agent-template-not-found" });
-  return agentDraftValidationResultSchema.parse({ valid: errors.length === 0, fieldErrors: errors });
 }
 
 export type Account = z.infer<typeof accountSchema>;
@@ -757,6 +714,8 @@ export type RuntimeSkillSummary = z.infer<typeof runtimeSkillSummarySchema>;
 export type AgentConfiguration = z.infer<typeof agentConfigurationSchema>;
 export type AgentEditableConfiguration = z.infer<typeof agentEditableConfigurationSchema>;
 export type Agent = z.infer<typeof agentSchema>;
+export type AgentCreationInput = z.infer<typeof agentCreationInputSchema>;
+export type AgentCreationValidationResult = z.infer<typeof agentCreationValidationResultSchema>;
 export type AgentDetailProjection = z.infer<typeof agentDetailProjectionSchema>;
 export type AgentSkillCatalog = z.infer<typeof agentSkillCatalogSchema>;
 export type AgentSkillMutation = z.infer<typeof agentSkillMutationSchema>;
@@ -766,9 +725,6 @@ export type AgentPrivateConfigurationSummary = z.infer<typeof agentPrivateConfig
 export type AgentPresence = z.infer<typeof agentPresenceSchema>;
 export type AgentWorkload = z.infer<typeof agentWorkloadSchema>;
 export type AgentActivity = z.infer<typeof agentActivitySchema>;
-export type AgentDraft = z.infer<typeof agentDraftSchema>;
-export type AgentDraftValidationResult = z.infer<typeof agentDraftValidationResultSchema>;
-export type CreateAgentFromDraftCommand = z.infer<typeof createAgentFromDraftCommandSchema>;
 export type AgentTemplate = z.infer<typeof agentTemplateSchema>;
 export type AgentBuilderProposal = z.infer<typeof agentBuilderProposalSchema>;
 export type AgentCatalogRow = z.infer<typeof agentCatalogRowSchema>;
@@ -791,7 +747,6 @@ export type {
   ActivityRepository,
   AgentListRequest,
   AgentRepository,
-  DraftRepository,
   FriendshipRepository,
   MemberRepository,
   PageRequest,

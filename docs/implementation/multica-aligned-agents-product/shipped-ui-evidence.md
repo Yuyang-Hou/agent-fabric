@@ -10,7 +10,7 @@ The shipped Desktop has exactly three signed-in primary routes: Agents, Runtimes
 | --- | --- |
 | Login | Google system-browser login, pending/error recovery, session restore and logout |
 | Agents | Search, mine/all/archived counts, filters, sorts, column control, selection, row actions, archive/restore |
-| Create | Blank, transactional template and AI Builder; restorable server draft, autosave, validation and idempotent create |
+| Create | Blank, template and local ephemeral AI Builder; local validation and one non-retried final create request |
 | Detail | Overview, terminal A2A activity, Skills/Agent MCP capability summary, editable Settings and dirty navigation guard |
 | Secrets | Redacted counts in ordinary detail; explicit acknowledged full replacement through a write-only endpoint |
 | Runtimes | Search/status filter, detection health, capability truth, name/visibility edit, auth guidance and deletion impact |

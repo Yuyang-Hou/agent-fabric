@@ -22,6 +22,11 @@ export {
 } from "./account-agents/mcp-loopback.js";
 export { AccountAgentRuntimeExecutor } from "./account-agents/runtime-executor.js";
 export {
+  LocalAgentBuilder,
+  type LocalAgentBuilderTurnInput,
+  type LocalAgentBuilderTurnResult,
+} from "./account-agents/local-agent-builder.js";
+export {
   EncryptedFileAccountAgentPrivateConfigurationStore,
   InMemoryAccountAgentPrivateConfigurationStore,
   type AccountAgentPrivateConfigurationStore,

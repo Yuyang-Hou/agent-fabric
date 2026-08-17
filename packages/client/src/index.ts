@@ -17,10 +17,8 @@ import type {
   AgentBatchLifecycleResult,
   AgentCatalogPage,
   AgentCatalogQuery,
-  AgentConfiguration,
+  AgentCreationInput,
   AgentDetailProjection,
-  AgentDraft,
-  AgentDraftValidationResult,
   AgentPrivateConfigurationUpdate,
   AgentSkillCatalog,
   AgentSkillMutation,
@@ -119,17 +117,6 @@ export interface AccountRuntimeObservationInput {
   readonly expectedVersion: number;
 }
 
-export interface SaveAccountAgentDraftInput {
-  readonly name: string;
-  readonly description: string;
-  readonly avatarUrl?: string;
-  readonly runtimeId?: string;
-  readonly permissionMode: AgentDraft["permissionMode"];
-  readonly configuration: AgentConfiguration;
-  readonly pendingUserText: string;
-  readonly expectedVersion: number;
-}
-
 export class AgentFabricClient {
   readonly baseUrl: string;
   readonly #token: string;
@@ -163,6 +150,10 @@ export class AgentFabricClient {
     for (const value of query.access) parameters.append("access", value);
     if (query.after) parameters.set("cursor", encodeCursor(query.after));
     return this.#request("GET", `/v1/agents?${parameters.toString()}`);
+  }
+
+  async createAgent(input: AgentCreationInput): Promise<Agent> {
+    return this.#request("POST", "/v1/agents", input, true, [], {}, 0);
   }
 
   async batchAgentLifecycle(request: AgentBatchLifecycleRequest): Promise<AgentBatchLifecycleResult> {
@@ -361,37 +352,6 @@ export class AgentFabricClient {
     return (await this.#request<{ readonly templates: readonly AgentTemplate[] }>("GET", "/v1/agent-templates")).templates;
   }
 
-  async createAgentDraft(input: { readonly mode: "blank" | "template" | "ai"; readonly templateId?: string }): Promise<AgentDraft> {
-    return this.#request("POST", "/v1/agent-drafts", input);
-  }
-
-  async listAgentDrafts(): Promise<readonly AgentDraft[]> {
-    return (await this.#request<{ readonly drafts: readonly AgentDraft[] }>("GET", "/v1/agent-drafts?limit=100")).drafts;
-  }
-
-  async getAgentDraft(draftId: string): Promise<AgentDraft> {
-    return this.#request("GET", `/v1/agent-drafts/${encodeURIComponent(draftId)}`);
-  }
-
-  async saveAgentDraft(draftId: string, input: SaveAccountAgentDraftInput): Promise<AgentDraft> {
-    return this.#request("PUT", `/v1/agent-drafts/${encodeURIComponent(draftId)}`, input);
-  }
-
-  async validateAgentDraft(draftId: string): Promise<AgentDraftValidationResult> {
-    return this.#request("POST", `/v1/agent-drafts/${encodeURIComponent(draftId)}/validate`, {});
-  }
-
-  async runAgentBuilderTurn(draftId: string, input: { readonly text: string; readonly expectedVersion: number }): Promise<AgentDraft> {
-    return this.#request("POST", `/v1/agent-drafts/${encodeURIComponent(draftId)}/builder-turns`, input);
-  }
-
-  async createAgentFromDraft(draftId: string, input: { readonly expectedVersion: number; readonly idempotencyKey: string }): Promise<
-    | { readonly status: "created"; readonly agent: Agent; readonly draft: AgentDraft }
-    | { readonly status: "validation_failed"; readonly draft: AgentDraft; readonly validation: AgentDraftValidationResult }
-  > {
-    return this.#request("POST", `/v1/agent-drafts/${encodeURIComponent(draftId)}/create`, input, true, [422]);
-  }
-
   async startLogin(input: OwnerLoginStartRequest): Promise<JoinStartResponse> {
     return this.#request("POST", "/v1/auth/login/start", input, false);
   }
@@ -435,9 +395,9 @@ export class AgentFabricClient {
     return items;
   }
 
-  async #request<T>(method: string, path: string, body?: unknown, authenticated = true, acceptedStatuses: readonly number[] = [], requestHeaders: Readonly<Record<string, string>> = {}): Promise<T> {
+  async #request<T>(method: string, path: string, body?: unknown, authenticated = true, acceptedStatuses: readonly number[] = [], requestHeaders: Readonly<Record<string, string>> = {}, retries = this.#retries): Promise<T> {
     let lastError: unknown;
-    for (let attempt = 0; attempt <= this.#retries; attempt += 1) {
+    for (let attempt = 0; attempt <= retries; attempt += 1) {
       try {
         const response = await this.#fetch(`${this.baseUrl}${path}`, {
           method,
@@ -452,13 +412,13 @@ export class AgentFabricClient {
         const value = await response.json().catch(() => ({})) as unknown;
         if (!response.ok && !acceptedStatuses.includes(response.status)) {
           const code = errorCode(value) ?? `http-${response.status}`;
-          if (response.status >= 500 && attempt < this.#retries) continue;
+          if (response.status >= 500 && attempt < retries) continue;
           throw new FabricClientError(code, response.status);
         }
         return value as T;
       } catch (error) {
         lastError = error;
-        if (error instanceof FabricClientError || attempt >= this.#retries) break;
+        if (error instanceof FabricClientError || attempt >= retries) break;
       }
     }
     if (lastError instanceof FabricClientError) throw lastError;

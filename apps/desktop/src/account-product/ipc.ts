@@ -4,10 +4,9 @@ import {
   agentCatalogPageSchema,
   agentCatalogQuerySchema,
   agentConfigurationSchema,
+  agentCreationValidationResultSchema,
   agentEditableConfigurationSchema,
   agentDetailProjectionSchema,
-  agentDraftSchema,
-  agentDraftValidationResultSchema,
   agentPrivateConfigurationUpdateSchema,
   agentSkillCatalogSchema,
   agentSkillMutationSchema,
@@ -43,8 +42,8 @@ const safeSignedInSessionSchema = z.strictObject({
 const routeSchema = z.discriminatedUnion("name", [
   z.strictObject({ name: z.literal("agents") }),
   z.strictObject({ name: z.literal("agent-create-choice") }),
-  z.strictObject({ name: z.literal("agent-create-manual"), draftId: identifier.optional() }),
-  z.strictObject({ name: z.literal("agent-create-ai"), draftId: identifier }),
+  z.strictObject({ name: z.literal("agent-create-manual") }),
+  z.strictObject({ name: z.literal("agent-create-ai") }),
   z.strictObject({ name: z.literal("agent-detail"), agentId: identifier, section: z.enum(["overview", "activity", "capabilities", "settings"]) }),
   z.strictObject({ name: z.literal("runtimes") }),
   z.strictObject({ name: z.literal("runtime-detail"), runtimeId: identifier }),
@@ -60,15 +59,29 @@ const agentUpdateSchema = z.strictObject({
   configuration: agentEditableConfigurationSchema,
 });
 
-const draftSaveSchema = z.strictObject({
-  name: z.string().trim().min(1).max(120),
+const creationUpdateSchema = z.strictObject({
+  name: z.string().trim().max(120),
   description: z.string().trim().max(1_000),
   avatarUrl: z.url().optional(),
   runtimeId: identifier.optional(),
   permissionMode: z.enum(["private", "friends"]),
   configuration: agentConfigurationSchema,
-  pendingUserText: z.string().max(16_000),
-  expectedVersion: z.number().int().positive(),
+});
+
+const builderMessageSchema = z.strictObject({
+  messageId: identifier,
+  role: z.enum(["user", "assistant"]),
+  text: z.string().trim().min(1).max(20_000),
+});
+
+export const agentCreationSessionSchema = creationUpdateSchema.extend({
+  mode: z.enum(["blank", "template", "ai"]),
+  templateId: identifier.optional(),
+  builder: z.strictObject({
+    state: z.enum(["idle", "in_flight", "failed"]),
+    conversation: z.array(builderMessageSchema).max(200),
+    recoverableErrorCode: identifier.optional(),
+  }).optional(),
 });
 
 export const accountProductRendererSnapshotSchema = z.strictObject({
@@ -91,9 +104,8 @@ export const accountProductRendererSnapshotSchema = z.strictObject({
     skills: z.enum(["loading", "ready", "failed"]),
   }).optional(),
   templates: z.array(agentTemplateSchema).max(100),
-  drafts: z.array(agentDraftSchema).max(500),
-  activeDraft: agentDraftSchema.optional(),
-  draftValidation: agentDraftValidationResultSchema.optional(),
+  creationSession: agentCreationSessionSchema.optional(),
+  creationValidation: agentCreationValidationResultSchema.optional(),
   runtimes: z.array(runtimeSchema).max(500),
   runtimeDetail: runtimeSchema.optional(),
   runtimeDeletionImpact: runtimeDeletionImpactSchema.optional(),
@@ -116,11 +128,10 @@ export const accountProductRendererCommandSchema = z.discriminatedUnion("type", 
   z.strictObject({ type: z.literal("agent-batch-lifecycle"), request: agentBatchLifecycleRequestSchema }),
   z.strictObject({ type: z.literal("agent-skill-mutate"), agentId: identifier, skillId: identifier, mutation: agentSkillMutationSchema }),
   z.strictObject({ type: z.literal("agent-private-configuration-update"), agentId: identifier, update: agentPrivateConfigurationUpdateSchema }),
-  z.strictObject({ type: z.literal("draft-create"), mode: z.enum(["blank", "template", "ai"]), templateId: identifier.optional() }),
-  z.strictObject({ type: z.literal("draft-open"), draftId: identifier }),
-  z.strictObject({ type: z.literal("draft-save"), draftId: identifier, update: draftSaveSchema }),
-  z.strictObject({ type: z.literal("draft-builder-turn"), draftId: identifier, text: z.string().trim().min(1).max(16_000), expectedVersion: z.number().int().positive() }),
-  z.strictObject({ type: z.literal("draft-create-agent"), draftId: identifier, expectedVersion: z.number().int().positive(), idempotencyKey: z.string().regex(/^[A-Za-z0-9:_-]{16,191}$/u) }),
+  z.strictObject({ type: z.literal("creation-start"), mode: z.enum(["blank", "template", "ai"]), templateId: identifier.optional() }),
+  z.strictObject({ type: z.literal("creation-update"), update: creationUpdateSchema }),
+  z.strictObject({ type: z.literal("builder-turn"), text: z.string().trim().min(1).max(16_000) }),
+  z.strictObject({ type: z.literal("creation-submit") }),
   z.strictObject({ type: z.literal("runtime-open"), runtimeId: identifier }),
   z.strictObject({ type: z.literal("runtime-update"), runtimeId: identifier, name: z.string().trim().min(1).max(120), visibility: runtimeVisibilitySchema, expectedVersion: z.number().int().positive() }),
   z.strictObject({ type: z.literal("runtime-refresh"), runtimeId: identifier, expectedVersion: z.number().int().positive() }),
@@ -148,6 +159,7 @@ export const accountProductRendererCommandResultSchema = z.discriminatedUnion("t
 export type AccountProductRendererSnapshot = z.infer<typeof accountProductRendererSnapshotSchema>;
 export type AccountProductRendererCommand = z.infer<typeof accountProductRendererCommandSchema>;
 export type AccountProductRendererCommandResult = z.infer<typeof accountProductRendererCommandResultSchema>;
+export type AgentCreationSession = z.infer<typeof agentCreationSessionSchema>;
 
 export interface ElectronAccountProductApi {
   snapshot(): Promise<AccountProductRendererSnapshot>;

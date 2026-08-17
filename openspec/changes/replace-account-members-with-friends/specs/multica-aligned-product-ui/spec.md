@@ -34,6 +34,17 @@ The Agents page SHALL provide a collection header and owner-only New Agent actio
 - **WHEN** one or more owned manageable rows are selected
 - **THEN** selection state and applicable batch actions appear without enabling selection or mutation of friend-opened rows
 
+### Requirement: Create and detail flows preserve Multica-equivalent hierarchy
+The method chooser, manual studio, template flow, local AI Builder and Agent detail SHALL match the reference's information hierarchy, progressive disclosure, tab organization, visible primary actions and recoverable feedback while using Agent Fabric content and components. Creation state is current-page local state and MUST NOT expose restoration or Cloud autosave affordances.
+
+#### Scenario: Creation method is chosen
+- **WHEN** the user selects blank, template or AI Builder
+- **THEN** the next surface opens fresh local state, preserves the correct primary action and does not mix all methods into one overloaded form
+
+#### Scenario: Detail configuration is unsupported
+- **WHEN** the bound Runtime does not support an MCP, Integration or provider-specific setting
+- **THEN** the corresponding tab is omitted or explicitly unavailable rather than rendering a nonfunctional control
+
 ### Requirement: Runtime and Friends management use the same visual system
 Runtime list/detail and Friends/friend-invitations SHALL use the same collection, row, detail, setting-row, dialog, status and feedback primitives as Agents, with no separate admin-console visual language. Friends UI MUST contain active friends, incoming invitations and outgoing invitations and MUST NOT contain roles, member resource impact, public search or invitation-token input.
 
@@ -59,3 +70,18 @@ Before implementation, approved comps SHALL exist for login, owned/friend Agent 
 #### Scenario: Screenshot looks correct but behavior is fake
 - **WHEN** invitation, Friendship, friend Agent projection or revocation state is not backed by its real API and permission transition
 - **THEN** the surface fails acceptance even if its screenshot resembles the reference
+
+### Requirement: AI Builder presents a local ephemeral session
+The AI Builder UI SHALL present local Runtime selection, multi-turn conversation, generation progress, recoverable current-page errors and a live Agent configuration preview. It MUST NOT display or depend on draft IDs, server versions, autosave state, version-conflict recovery, continue-draft entrypoints or cross-restart restoration.
+
+#### Scenario: Builder is opened fresh
+- **WHEN** the owner enters AI Builder
+- **THEN** a new empty local session opens without fetching, creating or restoring an Agent draft
+
+#### Scenario: Builder generation fails locally
+- **WHEN** the selected Runtime is unavailable, unauthenticated or rejects a turn
+- **THEN** the UI preserves the current page input and preview, identifies the affected local Runtime and offers an explicit retry without claiming Cloud draft recovery
+
+#### Scenario: Final create succeeds
+- **WHEN** the one final Agent create request succeeds
+- **THEN** the UI leaves Builder and opens the created Agent detail without retaining a continue-draft entry

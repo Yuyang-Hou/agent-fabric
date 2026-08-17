@@ -2,7 +2,6 @@ import {
   accountMemberSchema,
   accountSchema,
   agentActivitySchema,
-  agentDraftSchema,
   agentSchema,
   memberInvitationSchema,
   memberInvitationSecretSchema,
@@ -14,7 +13,6 @@ import {
   type AccountMember,
   type Agent,
   type AgentActivity,
-  type AgentDraft,
   type AgentListRequest,
   type AgentRuntime,
   type MemberInvitation,
@@ -311,61 +309,6 @@ export class MySqlAccountAgentStore implements AccountAgentUnitOfWork {
     });
   }
 
-  async saveDraft(value: AgentDraft, expectedVersion?: number): Promise<AgentDraft> {
-    const draft = agentDraftSchema.parse(value);
-    if (expectedVersion === undefined) {
-      if (draft.version !== 1) throw new MySqlPersistenceError("optimistic-version-invalid");
-      await this.executor.execute(String.raw`
-        INSERT INTO agent_builder_drafts(
-          draft_id, account_id, owner_user_id, mode, template_id, state, draft, created_agent_id,
-          version, expires_at, created_at, updated_at
-        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
-      `, draftValues(draft));
-      return draft;
-    }
-    requireNextVersion(draft.version, expectedVersion);
-    const [result] = await this.executor.execute<ResultSetHeader>(String.raw`
-      UPDATE agent_builder_drafts SET owner_user_id=?, mode=?, template_id=?, state=?, draft=?, created_agent_id=?,
-        version=?, expires_at=?, updated_at=? WHERE account_id=? AND draft_id=? AND version=?
-    `, [
-      draft.ownerUserId,
-      draft.mode,
-      draft.templateId ?? null,
-      draft.state,
-      JSON.stringify(draft),
-      draft.createdAgentId ?? null,
-      draft.version,
-      sqlDate(draft.expiresAt),
-      sqlDate(draft.updatedAt),
-      draft.accountId,
-      draft.draftId,
-      expectedVersion,
-    ]);
-    requireUpdated(result);
-    return draft;
-  }
-
-  async getDraft(accountId: string, draftId: string): Promise<AgentDraft | undefined> {
-    const [rows] = await this.executor.execute<DraftRow[]>("SELECT * FROM agent_builder_drafts WHERE account_id=? AND draft_id=?", [accountId, draftId]);
-    return rows[0] ? mapDraft(rows[0]) : undefined;
-  }
-
-  async listDrafts(accountId: string, ownerUserId: string, request: PageRequest): Promise<RepositoryPage<AgentDraft>> {
-    const limit = pageLimit(request.limit);
-    const values: SqlValue[] = [accountId, ownerUserId];
-    let cursor = "";
-    if (request.after) {
-      cursor = " AND (updated_at < ? OR (updated_at=? AND draft_id < ?))";
-      values.push(sqlDate(request.after.sortValue), sqlDate(request.after.sortValue), request.after.id);
-    }
-    values.push(limit);
-    const [rows] = await this.executor.execute<DraftRow[]>(
-      `SELECT * FROM agent_builder_drafts WHERE account_id=? AND owner_user_id=?${cursor} ORDER BY updated_at DESC, draft_id DESC LIMIT ?`,
-      values,
-    );
-    const items = rows.map(mapDraft);
-    return page(items, limit, (draft) => ({ sortValue: draft.updatedAt, id: draft.draftId }));
-  }
 
   async appendActivity(value: AgentActivity): Promise<AgentActivity> {
     const activity = agentActivitySchema.parse(value);
@@ -455,23 +398,6 @@ function agentValues(agent: Agent): SqlValue[] {
   ];
 }
 
-function draftValues(draft: AgentDraft): SqlValue[] {
-  return [
-    draft.draftId,
-    draft.accountId,
-    draft.ownerUserId,
-    draft.mode,
-    draft.templateId ?? null,
-    draft.state,
-    JSON.stringify(draft),
-    draft.createdAgentId ?? null,
-    draft.version,
-    sqlDate(draft.expiresAt),
-    sqlDate(draft.createdAt),
-    sqlDate(draft.updatedAt),
-  ];
-}
-
 function mapAccount(row: AccountRow): Account {
   return accountSchema.parse({ accountId: row.account_id, name: row.name, version: Number(row.version), createdAt: toIso(row.created_at), updatedAt: toIso(row.updated_at) });
 }
@@ -557,10 +483,6 @@ function mapSkill(row: SkillRow): Skill {
   });
 }
 
-function mapDraft(row: DraftRow): AgentDraft {
-  return agentDraftSchema.parse(json(row.draft));
-}
-
 function mapActivity(row: ActivityRow): AgentActivity {
   return agentActivitySchema.parse({
     activityId: row.activity_id,
@@ -628,6 +550,5 @@ interface InvitationRow extends RowDataPacket { invitation_id: string; account_i
 interface RuntimeRow extends RowDataPacket { runtime_id: string; account_id: string; owner_user_id: string; provider: string; adapter_id: string; name: string; visibility: string; health: string; capabilities: string | Record<string, unknown>; version: number | string; last_checked_at: string | Date | null; created_at: string | Date; updated_at: string | Date }
 interface AgentRow extends RowDataPacket { agent_id: string; account_id: string; owner_user_id: string; runtime_id: string | null; name: string; description: string; avatar_url: string | null; permission_mode: string; configuration: string | Record<string, unknown>; version: number | string; archived_at: string | Date | null; archived_by_user_id: string | null; created_at: string | Date; updated_at: string | Date }
 interface SkillRow extends RowDataPacket { skill_id: string; account_id: string; runtime_id: string | null; name: string; description: string; origin: string; version: number | string; created_at: string | Date; updated_at: string | Date }
-interface DraftRow extends RowDataPacket { draft: string | Record<string, unknown> }
 interface ActivityRow extends RowDataPacket { activity_id: string; account_id: string; agent_id: string; task_id: string; terminal_state: string; failure_category: string | null; started_at: string | Date; completed_at: string | Date; duration_ms: number | string }
 interface IdentifierRow extends RowDataPacket { agent_id: string }

@@ -2,7 +2,7 @@
 
 > Research source: external read-only checkout `/Users/hyy/project/multica`
 > Fixed commit: `2b35f8017ab3b773e0356e562ecb04e55a7a9bd7`
-> Product authority: `multica-aligned-agents-product`
+> Product authority: `replace-account-members-with-friends`
 
 This record converts observable product behavior into independent Agent Fabric requirements. The paths below are evidence locations only: no Multica source, assets, component names, CSS variables, copy or private routes may enter `apps/`, `packages/` or `adapters/`.
 
@@ -15,8 +15,8 @@ This record converts observable product behavior into independent Agent Fabric r
 | Agent catalog | Search; My/All/Archived scopes with unfiltered totals; availability/runtime/owner/model/access filters; stable sort; configurable columns; dense rows; loading/no-match/error states | `packages/views/agents/components/agents-page.tsx`, `agent-list-toolbar.tsx` |
 | Catalog selection | Single and select-all behavior; archive/restore/access batch actions; permission-aware row menu and confirmation | `agent-batch-toolbar.tsx`, `agent-row-actions.tsx` |
 | Create choice | Separate blank and AI-assisted entry modes, with clear back/continue hierarchy | `packages/views/agents/create/choose-create-method-page.tsx` |
-| Manual create | Identity, runtime, instructions, model/thinking/tier/concurrency, access and capability inputs; validation; pending submit; draft autosave/recovery; duplicate seed | `manual-create-agent-page.tsx`, `agent-configuration-panel.tsx`, `use-manual-draft-sync.ts`, `use-duplicate-draft-seed.ts` |
-| AI Builder | Runtime choice; durable named sessions; conversation plus live structured draft; refresh/resume; unfinished sessions; explicit final create | `ai-create-agent-page.tsx`, `ai-builder-session-page.tsx`, `builder-conversation.tsx`, `builder-workspace.tsx`, `use-builder-session.ts` |
+| Manual create | Identity, runtime, instructions, model/thinking/tier/concurrency, access and capability inputs; validation and pending submit. Reference persistence behavior is research evidence only and is intentionally not adopted. | `manual-create-agent-page.tsx`, `agent-configuration-panel.tsx` |
+| AI Builder | Runtime choice; conversation plus live structured preview; explicit final create. Reference durable-session behavior is intentionally replaced by a local ephemeral session. | `ai-create-agent-page.tsx`, `ai-builder-session-page.tsx`, `builder-conversation.tsx`, `builder-workspace.tsx` |
 | Agent detail | Identity/status header, permission-aware actions, archived and runtime-required banners, loading/not-found/no-access/error states | `packages/views/agents/components/agent-detail-page.tsx` |
 | Overview and activity | Overview summary; current presence; owner/runtime/access; execution/activity timeline and failure detail | `agent-overview-pane.tsx`, `agent-overview-summary.tsx`, `tabs/activity-tab.tsx` |
 | Capabilities | Instructions; skills and runtime-skill disabling; runtime-supported MCP; Agent MCP; available integrations | `tabs/instructions-tab.tsx`, `tabs/skills-tab.tsx`, `tabs/mcp-config-tab.tsx`, `tabs/agent-mcp-tab.tsx`, `tabs/integrations-tab.tsx` |
@@ -40,9 +40,9 @@ This record converts observable product behavior into independent Agent Fabric r
 | --- | --- | --- |
 | Login/session | `/login` | `/v1/session`, `/v1/auth/google/start`, `/v1/auth/google/callback`, `/v1/session/logout` |
 | Agent catalog | `/agents?scope=mine\|all\|archived` | `GET /v1/accounts/{accountId}/agents` with bounded list projection and stable cursor |
-| Create choice | `/agents/new` | Navigation only; no draft mutation |
-| Manual/template draft | `/agents/new/manual` | `PUT /v1/accounts/{accountId}/agent-build-drafts/{draftId}`; templates are independent Agent Fabric seeds |
-| AI Builder | `/agents/new/ai/{draftId}` | Same draft resource plus Account-scoped Builder message commands; no copied private endpoint |
+| Create choice | `/agents/new` | Navigation only; starts no server resource |
+| Manual/template create | `/agents/new/manual` | Local configuration and validation; one final `POST /v1/agents` |
+| AI Builder | `/agents/new/ai` | Desktop/Edge invokes the selected local Runtime directly; one final `POST /v1/agents` only after local validation |
 | Agent detail | `/agents/{agentId}/{overview\|activity\|capabilities\|settings}` | `GET/PATCH /v1/accounts/{accountId}/agents/{agentId}` and narrow capability/secret commands |
 | Archive/restore/batch | Catalog/detail actions | Explicit archive/restore/batch commands with per-item authorization results |
 | Runtime catalog/detail | `/runtimes`, `/runtimes/{runtimeId}` | `/v1/accounts/{accountId}/runtimes` and impact-planned mutation commands |

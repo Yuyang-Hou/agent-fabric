@@ -100,10 +100,10 @@ describe("AgentFabricClient", () => {
     }));
   });
 
-  it("returns field-level draft validation from an HTTP 422 create response", async () => {
-    const payload = { status: "validation_failed", draft: { draftId: "draft:one" }, validation: { valid: false, fieldErrors: [{ field: "runtimeId", code: "runtime-required" }] } };
-    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify(payload), { status: 422, headers: { "content-type": "application/json" } }));
-    const client = new AgentFabricClient({ baseUrl: "http://127.0.0.1:8787", token: "secret", fetchImpl, retries: 0 });
-    await expect(client.createAgentFromDraft("draft:one", { expectedVersion: 1, idempotencyKey: "create:0123456789abcdef" })).resolves.toEqual(payload);
+  it("sends the final Agent create request exactly once even when the server fails", async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({ error: { code: "temporary" } }), { status: 503, headers: { "content-type": "application/json" } }));
+    const client = new AgentFabricClient({ baseUrl: "http://127.0.0.1:8787", token: "secret", fetchImpl, retries: 2 });
+    await expect(client.createAgent({ name: "Local Builder", description: "", runtimeId: "runtime:one", permissionMode: "private", configuration: { instructions: "Answer", maxConcurrentTasks: 1, skillIds: [], disabledRuntimeSkillIds: [], environmentVariableNames: [], customArguments: [], runtimeConfiguration: {}, mcpConnections: [], integrations: [] } })).rejects.toThrow("temporary");
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
 });

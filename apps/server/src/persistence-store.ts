@@ -59,17 +59,6 @@ export type AccountAgentManagementPersistencePort = Pick<MySqlStore,
   | "recordAccountAgentPrivateConfigurationAuditForCredential"
 >;
 
-export type AccountAgentCreationPersistencePort = Pick<MySqlStore,
-  | "createAccountAgentDraftForCredential"
-  | "getAccountAgentDraftForCredential"
-  | "listAccountAgentDraftsForCredential"
-  | "saveAccountAgentDraftForCredential"
-  | "startAccountAgentBuilderTurnForCredential"
-  | "completeAccountAgentBuilderTurnForCredential"
-  | "validateAccountAgentDraftForCredential"
-  | "createAccountAgentFromDraftForCredential"
->;
-
 export type AccountAgentA2APersistencePort = Pick<MySqlStore,
   | "listInvokableAccountAgentsForCredential"
   | "getInvokableAccountAgentForCredential"
@@ -144,13 +133,6 @@ export function requireAccountAgentManagementPersistence(store: PersistenceStore
   const methods = ["createAccountAgentForCredential", "getAccountAgentForCredential", "getAccountAgentDetailForCredential", "listAccountAgentsForCredential", "queryAccountAgentCatalogForCredential", "updateAccountAgentForCredential", "archiveAccountAgentForCredential", "restoreAccountAgentForCredential", "batchAccountAgentLifecycleForCredential", "listAccountAgentActivitiesForCredential", "listAccountAgentSkillsForCredential", "mutateAccountAgentSkillForCredential", "prepareAccountAgentPrivateConfigurationForCredential", "commitAccountAgentPrivateConfigurationSummaryForCredential", "recordAccountAgentPrivateConfigurationAuditForCredential"] as const;
   if (methods.some((method) => typeof candidate[method] !== "function")) throw new Error("account-agent-storage-unavailable");
   return candidate as PersistenceStore & AccountAgentManagementPersistencePort;
-}
-
-export function requireAccountAgentCreationPersistence(store: PersistenceStore): AccountAgentCreationPersistencePort {
-  const candidate = store as PersistenceStore & Partial<AccountAgentCreationPersistencePort>;
-  const methods = ["createAccountAgentDraftForCredential", "getAccountAgentDraftForCredential", "listAccountAgentDraftsForCredential", "saveAccountAgentDraftForCredential", "startAccountAgentBuilderTurnForCredential", "completeAccountAgentBuilderTurnForCredential", "validateAccountAgentDraftForCredential", "createAccountAgentFromDraftForCredential"] as const;
-  if (methods.some((method) => typeof candidate[method] !== "function")) throw new Error("account-agent-creation-storage-unavailable");
-  return candidate as PersistenceStore & AccountAgentCreationPersistencePort;
 }
 
 export function requireAccountAgentA2APersistence(store: PersistenceStore): AccountAgentA2APersistencePort {

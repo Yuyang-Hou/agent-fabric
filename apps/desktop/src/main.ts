@@ -5,6 +5,7 @@ import { app, BrowserWindow, ipcMain, Menu, safeStorage, shell } from "electron"
 import WebSocket from "ws";
 import {
   FileCredentialBlobStore,
+  LocalAgentBuilder,
   createCodexRuntimeAdapter,
   installAccountAgentMcp,
   resolveCodexExecutablePath,
@@ -42,6 +43,7 @@ let accountProductHost: AccountProductHost | undefined;
 let accountRestore: Promise<unknown> | undefined;
 let accountSessionServices: AccountProductSessionServices | undefined;
 let accountRuntimeAdapter: ReturnType<typeof createCodexRuntimeAdapter> | undefined;
+let localAgentBuilder: LocalAgentBuilder | undefined;
 let desktopUpdater: DesktopUpdaterController | undefined;
 const hostLifecycle = new DesktopHostLifecycle();
 const ownsSingleInstance = app.requestSingleInstanceLock();
@@ -65,6 +67,7 @@ function diagnostic(message: string): void {
 }
 
 async function stopLocalServices(): Promise<void> {
+  await localAgentBuilder?.close();
   await accountSessionServices?.stop();
   await accountRuntimeAdapter?.shutdown();
 }
@@ -90,7 +93,11 @@ async function createMainWindow(): Promise<void> {
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
   mainWindow.webContents.on("will-navigate", (event) => event.preventDefault());
   mainWindow.on("close", (event) => {
-    if (hostLifecycle.shouldHideWindow(process.platform)) { event.preventDefault(); mainWindow?.hide(); }
+    if (hostLifecycle.shouldHideWindow(process.platform)) {
+      event.preventDefault();
+      void accountProductHost?.discardCreationSession().catch(() => undefined);
+      mainWindow?.hide();
+    }
   });
   const fixture = process.env.AGENT_FABRIC_MODE === "account-ui-acceptance" ? process.env.AGENT_FABRIC_CAPTURE_STATE || "agents" : undefined;
   await mainWindow.loadFile(path.join(currentDirectory, "index.html"), fixture ? { query: { fixture } } : undefined);
@@ -110,6 +117,7 @@ else {
       nodeExecutablePath: process.execPath,
       environment: { ELECTRON_RUN_AS_NODE: "1", ...(codexExecutablePath ? { CODEX_PATH: codexExecutablePath } : {}) },
     });
+    localAgentBuilder = new LocalAgentBuilder(accountRuntimeAdapter, app.isPackaged ? app.getPath("userData") : repositoryRoot);
     accountSessionServices = new AccountProductSessionServices({ runtime: new DesktopAccountRuntime(), mcp: new DesktopAccountAgentMcp(), installMcp: installAccountAgentMcp });
     if (serverBaseUrl) googleLogin = new DesktopGoogleLogin({ serverBaseUrl, deviceName: `${app.getName()} on ${process.platform}`, openExternal: async (url) => { await shell.openExternal(url); } });
     if (serverBaseUrl && googleLogin) accountProductHost = new AccountProductHost(new DesktopAccountProductAuthentication({
@@ -168,6 +176,12 @@ else {
         if (!services) return Promise.reject(new Error("runtime-refresh-not-local"));
         return services.refreshRuntime(runtimeId, expectedVersion);
       },
+      runLocalBuilderTurn: async ({ runtimeId, text, configuration }) => {
+        const status = accountSessionServices?.status?.runtime;
+        if (!status || status.state !== "ready" || status.runtimeId !== runtimeId || !localAgentBuilder) throw new Error("runtime-not-ready");
+        return localAgentBuilder.turn({ text, configuration });
+      },
+      closeLocalBuilder: async () => { await localAgentBuilder?.close(); },
     });
     ipcMain.handle(ACCOUNT_PRODUCT_SNAPSHOT_CHANNEL, async (event) => {
       assertMainRenderer(event.sender.id);

@@ -17,3 +17,16 @@ The packaged Desktop, CLI help, documentation and default configuration SHALL di
 #### Scenario: Packaged app launches
 - **WHEN** a signed-in user opens the current packaged Desktop
 - **THEN** the primary navigation shows Agents, Runtimes and Friends, Agents distinguishes owned and friend-opened rows, and no Members navigation or role control is present
+
+## ADDED Requirements
+
+### Requirement: Product runtime exposes no Agent draft capability
+Current Desktop, Client, IPC, Domain, Server and persistence runtime code MUST NOT expose AgentDraft commands, `/v1/agent-drafts*` routes, Cloud Builder-turn orchestration, draft autosave/restore or draft version-conflict behavior. Historical schema MAY remain temporarily as unread and unwritten rollback data until a separately approved safe deletion migration.
+
+#### Scenario: Supported client probes removed draft surfaces
+- **WHEN** the current Desktop or another supported client attempts to discover or invoke an Agent draft command or `/v1/agent-drafts*` route
+- **THEN** no product command or route is registered and no draft persistence read or write occurs
+
+#### Scenario: Historical draft rows exist
+- **WHEN** the updated product starts with legacy Agent draft tables or rows still present
+- **THEN** normal login, Builder and Agent creation ignore them without deleting, restoring or mutating the historical data

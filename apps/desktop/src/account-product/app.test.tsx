@@ -47,14 +47,36 @@ describe("Account-scoped product Renderer", () => {
     expect(commands.map((command) => command.type)).toEqual(["agent-open", "navigate"]);
   });
 
-  it("keeps blank, template and AI Builder creation as separate recoverable paths", async () => {
+  it("keeps blank, template and AI Builder creation as separate local paths", async () => {
     render(<AccountProductApp bridge={createAccountProductFixtureBridge("create")} />);
     expect(screen.getByRole("button", { name: /从空白开始/u })).toBeTruthy();
     expect(screen.getByRole("button", { name: /使用 AI Builder/u })).toBeTruthy();
     expect(screen.getByRole("button", { name: /研究助手/u })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: /使用 AI Builder/u }));
     await waitFor(() => expect(screen.getByRole("textbox", { name: "给 AI Builder 的消息" })).toBeTruthy());
-    expect(screen.getByText("实时草稿")).toBeTruthy();
+    expect(screen.getByText("实时预览")).toBeTruthy();
+    expect(screen.queryByText(/继续草稿|恢复草稿|草稿 v/u)).toBeNull();
+  });
+
+  it("keeps an unnamed Builder session local, requires the local Runtime and sends directly", async () => {
+    const commands: Array<{ type: string; [key: string]: unknown }> = [];
+    render(<AccountProductApp bridge={createAccountProductFixtureBridge("builder-unbound", (command) => commands.push(command))} />);
+    const send = screen.getByRole("button", { name: "发送" });
+    expect(send.hasAttribute("disabled")).toBe(true);
+    expect(screen.getByText("发送前请选择一个可用的本机 Runtime。")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("combobox", { name: "Builder Runtime" }));
+    const runtimeOption = await screen.findByRole("option", { name: "Nick 的 Mac" });
+    fireEvent.pointerDown(runtimeOption, { pointerType: "mouse" });
+    fireEvent.click(runtimeOption);
+
+    await waitFor(() => expect(commands[0]).toMatchObject({ type: "creation-update", update: { name: "", runtimeId: "runtime:macbook" } }));
+    await waitFor(() => expect(screen.queryByText("发送前请选择一个可用的本机 Runtime。")).toBeNull());
+    fireEvent.change(screen.getByRole("textbox", { name: "给 AI Builder 的消息" }), { target: { value: "你好？" } });
+    await waitFor(() => expect(screen.getByRole("button", { name: "发送" }).hasAttribute("disabled")).toBe(false));
+    fireEvent.click(screen.getByRole("button", { name: "发送" }));
+    await waitFor(() => expect(commands).toEqual(expect.arrayContaining([expect.objectContaining({ type: "builder-turn", text: "你好？" })])));
+    expect(commands.some((command) => command.type.includes("draft"))).toBe(false);
   });
 
   it("shows friend invitations and relationships without Account roles", async () => {

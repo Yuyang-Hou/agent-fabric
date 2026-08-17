@@ -1,4 +1,4 @@
-import type { AgentCatalogQuery, AgentDraft } from "@agent-fabric/account-agent-domain";
+import type { AgentCatalogQuery } from "@agent-fabric/account-agent-domain";
 import { rowSelectionFeature, tableFeatures, useTable, type RowSelectionState } from "@tanstack/react-table";
 import {
   Activity, Archive, ArrowLeft, Boxes, Check, ChevronDown, ChevronRight, CircleAlert, Clock3,
@@ -8,7 +8,7 @@ import {
 import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent, type ReactNode } from "react";
 import { Toaster, toast } from "sonner";
 
-import type { AccountProductRendererCommand, AccountProductRendererSnapshot, ElectronAccountProductApi } from "./ipc.js";
+import type { AccountProductRendererCommand, AccountProductRendererSnapshot, AgentCreationSession, ElectronAccountProductApi } from "./ipc.js";
 import { AgentFabricMark } from "./agent-fabric-mark.js";
 import { FabricButton, FabricCheckbox, FabricDialog, FabricMenu, FabricPopover, FabricSelect, FabricStatus, FabricTabs, LoadingRows, SettingRow, SurfaceState } from "./ui.js";
 
@@ -147,41 +147,39 @@ function AgentsCatalog({ snapshot, busy, run }: ViewProps) {
 
 function CreateChoice({ snapshot, busy, run }: ViewProps) {
   return <PageSurface icon={WandSparkles} title="新建智能体" description="选择起点；三种方式最终都会生成同一份可编辑配置。" back={() => void run({ type: "navigate", route: { name: "agents" } })}>
-    <div className="method-intro"><h2>你想从哪里开始？</h2><p>完全自行配置、采用已验证模板，或通过对话让 AI Builder 准备草稿。</p></div>
+    <div className="method-intro"><h2>你想从哪里开始？</h2><p>完全自行配置、采用已验证模板，或通过本机 Runtime 对话生成配置。</p></div>
     <div className="method-grid">
-      <MethodCard icon={LayoutList} title="从空白开始" description="逐项配置身份、Instructions、Runtime、模型、能力和访问权限。" onClick={() => void run({ type: "draft-create", mode: "blank" })} busy={busy === "draft-create"} />
-      <MethodCard icon={Sparkles} title="使用 AI Builder" description="描述目标，Builder 会提问并持续保存一份可恢复的完整草稿。" recommended onClick={() => void run({ type: "draft-create", mode: "ai" })} busy={busy === "draft-create"} />
+      <MethodCard icon={LayoutList} title="从空白开始" description="逐项配置身份、Instructions、Runtime、模型、能力和访问权限。" onClick={() => void run({ type: "creation-start", mode: "blank" })} busy={busy === "creation-start"} />
+      <MethodCard icon={Sparkles} title="使用 AI Builder" description="通过本机 Runtime 多轮生成预览；离开后本次会话不会保留。" recommended onClick={() => void run({ type: "creation-start", mode: "ai" })} busy={busy === "creation-start"} />
     </div>
-    {snapshot.drafts.filter((draft) => draft.state !== "created").length > 0 && <section className="template-section draft-resume-section"><div><h2>继续草稿</h2><p>这些草稿已保存在 Account 中，可以从上次编辑的位置继续。</p></div><div className="template-grid">{snapshot.drafts.filter((draft) => draft.state !== "created").map((draft) => <button key={draft.draftId} onClick={() => void run({ type: "draft-open", draftId: draft.draftId })}><Clock3 aria-hidden="true" /><span><strong>{draft.name || "未命名草稿"}</strong><small>{draft.mode === "ai" ? "AI Builder" : draft.mode === "template" ? "模板" : "空白创建"} · {formatRelative(draft.updatedAt)}</small></span><ChevronRight aria-hidden="true" /></button>)}</div></section>}
-    {snapshot.templates.length > 0 && <section className="template-section"><div><h2>从模板开始</h2><p>模板会原子导入所需 Skill，不会留下半创建资源。</p></div><div className="template-grid">{snapshot.templates.map((template) => <button key={template.templateId} onClick={() => void run({ type: "draft-create", mode: "template", templateId: template.templateId })}><Boxes aria-hidden="true" /><span><strong>{template.name}</strong><small>{template.description || "已验证的 Agent Fabric 模板"}</small></span><ChevronRight aria-hidden="true" /></button>)}</div></section>}
+    {snapshot.templates.length > 0 && <section className="template-section"><div><h2>从模板开始</h2><p>模板会在本地生成配置，确认创建前不会写入服务端。</p></div><div className="template-grid">{snapshot.templates.map((template) => <button key={template.templateId} onClick={() => void run({ type: "creation-start", mode: "template", templateId: template.templateId })}><Boxes aria-hidden="true" /><span><strong>{template.name}</strong><small>{template.description || "已验证的 Agent Fabric 模板"}</small></span><ChevronRight aria-hidden="true" /></button>)}</div></section>}
   </PageSurface>;
 }
 
 function ManualCreate({ snapshot, busy, run }: ViewProps) {
-  const draft = snapshot.activeDraft;
-  if (!draft) return <PageSurface icon={AgentFabricMark} title="创建智能体" description="正在恢复草稿…" back={() => void run({ type: "navigate", route: { name: "agent-create-choice" } })}><LoadingRows count={3} /></PageSurface>;
-  return <AgentDraftForm draft={draft} validation={snapshot.draftValidation} runtimes={snapshot.runtimes} busy={busy} run={run} />;
+  const session = snapshot.creationSession;
+  if (!session) return <PageSurface icon={AgentFabricMark} title="创建智能体" description="本地创建会话不可用。" back={() => void run({ type: "navigate", route: { name: "agent-create-choice" } })}><SurfaceState icon={CircleAlert} title="请重新选择创建方式" description="未保存的创建会话不会恢复。" /></PageSurface>;
+  return <AgentCreationForm session={session} validation={snapshot.creationValidation} runtimes={snapshot.runtimes} busy={busy} run={run} />;
 }
 
-function AgentDraftForm({ draft, validation, runtimes, busy, run }: { readonly draft: AgentDraft; readonly validation: AccountProductRendererSnapshot["draftValidation"]; readonly runtimes: AccountProductRendererSnapshot["runtimes"]; readonly busy: ViewProps["busy"]; readonly run: ViewProps["run"] }) {
-  const [name, setName] = useState(draft.name);
-  const [description, setDescription] = useState(draft.description);
-  const [instructions, setInstructions] = useState(draft.configuration.instructions);
-  const [runtimeId, setRuntimeId] = useState(draft.runtimeId ?? "");
-  const [permissionMode, setPermissionMode] = useState(draft.permissionMode);
-  const [model, setModel] = useState(draft.configuration.model ?? "");
-  const [thinkingLevel, setThinkingLevel] = useState(draft.configuration.thinkingLevel ?? "medium");
-  const [serviceTier, setServiceTier] = useState(draft.configuration.serviceTier ?? "default");
-  const [maxConcurrentTasks, setMaxConcurrentTasks] = useState(draft.configuration.maxConcurrentTasks);
+function AgentCreationForm({ session, validation, runtimes, busy, run }: { readonly session: AgentCreationSession; readonly validation: AccountProductRendererSnapshot["creationValidation"]; readonly runtimes: AccountProductRendererSnapshot["runtimes"]; readonly busy: ViewProps["busy"]; readonly run: ViewProps["run"] }) {
+  const [name, setName] = useState(session.name);
+  const [description, setDescription] = useState(session.description);
+  const [instructions, setInstructions] = useState(session.configuration.instructions);
+  const [runtimeId, setRuntimeId] = useState(session.runtimeId ?? "");
+  const [permissionMode, setPermissionMode] = useState(session.permissionMode);
+  const [model, setModel] = useState(session.configuration.model ?? "");
+  const [thinkingLevel, setThinkingLevel] = useState(session.configuration.thinkingLevel ?? "medium");
+  const [serviceTier, setServiceTier] = useState(session.configuration.serviceTier ?? "default");
+  const [maxConcurrentTasks, setMaxConcurrentTasks] = useState(session.configuration.maxConcurrentTasks);
   const selectedRuntime = runtimes.find((runtime) => runtime.runtimeId === runtimeId);
   const selectedModel = selectedRuntime?.capabilities.modelCatalog?.find((item) => item.model === model);
-  const dirty = name !== draft.name || description !== draft.description || instructions !== draft.configuration.instructions || runtimeId !== (draft.runtimeId ?? "") || permissionMode !== draft.permissionMode || model !== (draft.configuration.model ?? "") || thinkingLevel !== (draft.configuration.thinkingLevel ?? "medium") || serviceTier !== (draft.configuration.serviceTier ?? "default") || maxConcurrentTasks !== draft.configuration.maxConcurrentTasks;
-  const nextConfiguration = { ...draft.configuration, instructions, ...(model ? { model } : { model: undefined }), ...(selectedRuntime?.capabilities.supportsThinkingLevel ? { thinkingLevel: thinkingLevel as AgentDraft["configuration"]["thinkingLevel"] } : { thinkingLevel: undefined }), ...(selectedRuntime?.capabilities.supportsServiceTier ? { serviceTier: serviceTier as AgentDraft["configuration"]["serviceTier"] } : { serviceTier: undefined }), maxConcurrentTasks };
-  const save = async () => run({ type: "draft-save", draftId: draft.draftId, update: { name, description, ...(runtimeId ? { runtimeId } : {}), permissionMode, configuration: nextConfiguration, pendingUserText: draft.pendingUserText, expectedVersion: draft.version } });
-  const create = async () => { if (dirty && !await save()) return; await run({ type: "draft-create-agent", draftId: draft.draftId, expectedVersion: dirty ? draft.version + 1 : draft.version, idempotencyKey: `desktop:create:${draft.draftId}:${Date.now()}` }); };
-  return <PageSurface icon={AgentFabricMark} title="创建智能体" description={draft.mode === "template" ? "检查模板配置并创建。" : "检查身份、行为、Runtime 与访问范围。"} back={() => void (async () => { if (!dirty || await save()) await run({ type: "navigate", route: { name: "agent-create-choice" } }); })()} meta={<><span className="meta-pill">{draft.mode === "template" ? "模板" : "空白创建"}</span><span className={`save-state ${dirty ? "is-dirty" : ""}`}>{dirty ? "有未保存修改" : "已保存"}</span></>} footer={<><FabricButton tone="quiet" loading={busy === "draft-save"} disabled={!dirty} onClick={() => void save()}>保存草稿</FabricButton><FabricButton tone="primary" loading={busy === "draft-create-agent"} disabled={!name.trim()} onClick={() => void create()}>创建并打开智能体</FabricButton></>}>
+  const nextConfiguration = { ...session.configuration, instructions, ...(model ? { model } : { model: undefined }), ...(selectedRuntime?.capabilities.supportsThinkingLevel ? { thinkingLevel: thinkingLevel as AgentCreationSession["configuration"]["thinkingLevel"] } : { thinkingLevel: undefined }), ...(selectedRuntime?.capabilities.supportsServiceTier ? { serviceTier: serviceTier as AgentCreationSession["configuration"]["serviceTier"] } : { serviceTier: undefined }), maxConcurrentTasks };
+  const update = async () => run({ type: "creation-update", update: { name, description, ...(runtimeId ? { runtimeId } : {}), permissionMode, configuration: nextConfiguration } });
+  const create = async () => { if (!await update()) return; await run({ type: "creation-submit" }); };
+  return <PageSurface icon={AgentFabricMark} title="创建智能体" description={session.mode === "template" ? "检查模板配置并创建。" : "检查身份、行为、Runtime 与访问范围。"} back={() => void run({ type: "navigate", route: { name: "agent-create-choice" } })} meta={<span className="meta-pill">{session.mode === "template" ? "模板" : "空白创建"} · 本地会话</span>} footer={<FabricButton tone="primary" loading={busy === "creation-submit"} disabled={!name.trim()} onClick={() => void create()}>创建并打开智能体</FabricButton>}>
     <div className="studio-column">
-      {validation && !validation.valid && <div className="inline-state is-error"><CircleAlert aria-hidden="true" /><span><strong>还不能创建智能体</strong><small>{validation.fieldErrors.map((error) => draftFieldError(error.field)).join("；")}</small></span></div>}
+      {validation && !validation.valid && <div className="inline-state is-error"><CircleAlert aria-hidden="true" /><span><strong>还不能创建智能体</strong><small>{validation.fieldErrors.map((error) => creationFieldError(error.field)).join("；")}</small></span></div>}
       <SettingsSection title="身份" description="使用清晰的名称和一句话说明，让好友可以快速判断它的用途。">
         <SettingRow label="头像" description="当前使用自动生成的首字母标识。"><IdentityMark name={name || "Agent"} /></SettingRow>
         <SettingRow label="名称"><input value={name} onChange={(event) => setName(event.target.value)} maxLength={120} aria-label="智能体名称" /></SettingRow>
@@ -190,28 +188,33 @@ function AgentDraftForm({ draft, validation, runtimes, busy, run }: { readonly d
       <SettingsSection title="行为与能力" description="Instructions 会直接影响这个智能体后续处理任务的方式。">
         <SettingRow label="Instructions" description="说明角色、边界、输出风格和需要询问的情况。" wide><textarea className="instructions-editor" value={instructions} onChange={(event) => setInstructions(event.target.value)} aria-label="Instructions" /></SettingRow>
         <SettingRow label="模型" description="选项来自当前 Runtime 的真实能力目录。"><FabricSelect ariaLabel="模型" value={model} onValueChange={(value) => { setModel(value); const entry = selectedRuntime?.capabilities.modelCatalog?.find((item) => item.model === value); if (entry && !entry.thinkingLevels.includes(thinkingLevel as never)) setThinkingLevel(entry.thinkingLevels[0] ?? "medium"); }} options={[{ value: "", label: "Runtime 默认" }, ...(selectedRuntime?.capabilities.modelCatalog?.map((item) => ({ value: item.model, label: item.displayName })) ?? [])]} /></SettingRow>
-        {selectedRuntime?.capabilities.supportsThinkingLevel && <SettingRow label="Thinking"><FabricSelect ariaLabel="Thinking Level" value={thinkingLevel} onValueChange={(value) => setThinkingLevel(value as NonNullable<AgentDraft["configuration"]["thinkingLevel"]>)} options={(selectedModel?.thinkingLevels ?? ["minimal", "low", "medium", "high", "xhigh"]).map((value) => ({ value, label: value }))} /></SettingRow>}
-        {selectedRuntime?.capabilities.supportsServiceTier && <SettingRow label="服务等级"><FabricSelect ariaLabel="服务等级" value={serviceTier} onValueChange={(value) => setServiceTier(value as NonNullable<AgentDraft["configuration"]["serviceTier"]>)} options={(selectedModel?.serviceTiers ?? ["default", "flex", "priority"]).map((value) => ({ value, label: value }))} /></SettingRow>}
+        {selectedRuntime?.capabilities.supportsThinkingLevel && <SettingRow label="Thinking"><FabricSelect ariaLabel="Thinking Level" value={thinkingLevel} onValueChange={(value) => setThinkingLevel(value as NonNullable<AgentCreationSession["configuration"]["thinkingLevel"]>)} options={(selectedModel?.thinkingLevels ?? ["minimal", "low", "medium", "high", "xhigh"]).map((value) => ({ value, label: value }))} /></SettingRow>}
+        {selectedRuntime?.capabilities.supportsServiceTier && <SettingRow label="服务等级"><FabricSelect ariaLabel="服务等级" value={serviceTier} onValueChange={(value) => setServiceTier(value as NonNullable<AgentCreationSession["configuration"]["serviceTier"]>)} options={(selectedModel?.serviceTiers ?? ["default", "flex", "priority"]).map((value) => ({ value, label: value }))} /></SettingRow>}
         <SettingRow label="最大并发" description="限制这个智能体同时处理的 A2A Task 数量。"><input type="number" min={1} max={64} value={maxConcurrentTasks} onChange={(event) => setMaxConcurrentTasks(Math.max(1, Math.min(64, Number(event.target.value) || 1)))} aria-label="最大并发任务" /></SettingRow>
       </SettingsSection>
       <SettingsSection title="运行与访问" description="Runtime 始终只有你可以绑定和管理；好友只获得 Agent 调用权。">
         <SettingRow label="Runtime"><FabricSelect ariaLabel="Runtime" value={runtimeId} onValueChange={(value) => { setRuntimeId(value); const nextRuntime = runtimes.find((runtime) => runtime.runtimeId === value); if (nextRuntime?.capabilities.modelCatalog && !nextRuntime.capabilities.modelCatalog.some((entry) => entry.model === model)) setModel(""); }} options={[{ value: "", label: "稍后绑定" }, ...runtimes.filter((runtime) => runtime.health === "ready").map((runtime) => ({ value: runtime.runtimeId, label: runtime.name }))]} /></SettingRow>
-        <SettingRow label="访问权限"><FabricSelect ariaLabel="访问权限" value={permissionMode} onValueChange={(value) => setPermissionMode(value as AgentDraft["permissionMode"])} options={[{ value: "private", label: "仅自己" }, { value: "friends", label: "所有好友可访问" }]} /></SettingRow>
+        <SettingRow label="访问权限"><FabricSelect ariaLabel="访问权限" value={permissionMode} onValueChange={(value) => setPermissionMode(value as AgentCreationSession["permissionMode"])} options={[{ value: "private", label: "仅自己" }, { value: "friends", label: "所有好友可访问" }]} /></SettingRow>
       </SettingsSection>
     </div>
   </PageSurface>;
 }
 
 function BuilderCreate({ snapshot, busy, run }: ViewProps) {
-  const draft = snapshot.activeDraft;
-  const [text, setText] = useState(draft?.pendingUserText ?? "");
-  const savePendingText = () => draft ? run({ type: "draft-save", draftId: draft.draftId, update: { name: draft.name, description: draft.description, ...(draft.avatarUrl ? { avatarUrl: draft.avatarUrl } : {}), ...(draft.runtimeId ? { runtimeId: draft.runtimeId } : {}), permissionMode: draft.permissionMode, configuration: draft.configuration, pendingUserText: text, expectedVersion: draft.version } }) : Promise.resolve(false);
-  useEffect(() => { if (!draft || !text.trim() || text === draft.pendingUserText || busy) return; const timer = window.setTimeout(() => void savePendingText(), 900); return () => window.clearTimeout(timer); }, [text, draft?.pendingUserText, draft?.version, busy]);
-  if (!draft) return <PageSurface icon={Sparkles} title="AI Builder" description="正在恢复 Builder 草稿…"><LoadingRows count={3} /></PageSurface>;
-  const send = async (event: FormEvent) => { event.preventDefault(); if (!text.trim()) return; const hadUnsavedText = text !== draft.pendingUserText; if (hadUnsavedText && !await savePendingText()) return; if (await run({ type: "draft-builder-turn", draftId: draft.draftId, text: text.trim(), expectedVersion: draft.version + (hadUnsavedText ? 1 : 0) })) setText(""); };
-  return <PageSurface icon={Sparkles} title="AI Builder" description="通过对话准备配置；每次修改都会保存到服务端草稿。" back={() => void (async () => { if (text === draft.pendingUserText || await savePendingText()) await run({ type: "navigate", route: { name: "agent-create-choice" } }); })()} meta={<span className="save-state">草稿 v{draft.version}</span>}>
-    {snapshot.draftValidation && !snapshot.draftValidation.valid && <div className="inline-state is-error builder-validation"><CircleAlert aria-hidden="true" /><span><strong>草稿还不完整</strong><small>{snapshot.draftValidation.fieldErrors.map((error) => draftFieldError(error.field)).join("；")}</small></span></div>}
-    <div className="builder-layout"><section className="builder-conversation"><div className="builder-messages">{draft.builderSession?.conversation.length ? draft.builderSession.conversation.map((message) => <article className={`builder-message is-${message.role}`} key={message.messageId}><span>{message.role === "assistant" ? <Sparkles aria-hidden="true" /> : <IdentityMark name="你" small />}</span><p>{message.text}</p></article>) : <SurfaceState icon={WandSparkles} title="描述你需要的智能体" description="例如：帮团队分析需求、给出风险清单，并始终用中文简洁回答。" />}{draft.builderSession?.recoverableErrorCode && <div className="inline-state is-error"><CircleAlert aria-hidden="true" /><span><strong>Builder 暂时未完成这一步</strong><small>草稿和输入都已保留，检查 Runtime 后重新发送即可。</small></span></div>}</div><form className="builder-composer" onSubmit={(event) => void send(event)}><textarea value={text} onChange={(event) => setText(event.target.value)} placeholder="描述目标、边界或需要调整的内容…" aria-label="给 AI Builder 的消息" /><span className="composer-save-state">{text === draft.pendingUserText ? "输入已保存" : "正在保存输入…"}</span><FabricButton tone="primary" type="submit" loading={busy === "draft-builder-turn" || busy === "draft-save"} disabled={!text.trim()}>发送</FabricButton></form></section><aside className="draft-preview"><div><span>实时草稿</span><FabricStatus value={draft.builderSession?.state === "failed" ? "failed" : draft.builderSession?.state === "in_flight" ? "checking" : "ready"} /></div><h2>{draft.name || "未命名智能体"}</h2><p>{draft.description || "Builder 的下一次有效建议会显示在这里。"}</p><dl><dt>Runtime</dt><dd>{snapshot.runtimes.find((runtime) => runtime.runtimeId === draft.runtimeId)?.name ?? "未绑定"}</dd><dt>模型</dt><dd>{draft.configuration.model || "Runtime 默认"}</dd><dt>访问</dt><dd>{permissionLabel(draft.permissionMode)}</dd></dl><div className="preview-instructions"><span>Instructions</span><p>{draft.configuration.instructions || "尚未生成"}</p></div><FabricButton tone="primary" loading={busy === "draft-create-agent"} disabled={!draft.name.trim() || draft.builderSession?.state === "in_flight"} onClick={() => void run({ type: "draft-create-agent", draftId: draft.draftId, expectedVersion: draft.version, idempotencyKey: `desktop:builder:${draft.draftId}:${Date.now()}` })}>创建并打开智能体</FabricButton></aside></div>
+  const session = snapshot.creationSession;
+  const [text, setText] = useState("");
+  if (!session || session.mode !== "ai" || !session.builder) return <PageSurface icon={Sparkles} title="AI Builder" description="本地会话不可用。" back={() => void run({ type: "navigate", route: { name: "agent-create-choice" } })}><SurfaceState icon={CircleAlert} title="请重新进入 Builder" description="离开或重启后不会恢复上次会话。" /></PageSurface>;
+  const selectedRuntime = snapshot.runtimes.find((runtime) => runtime.runtimeId === session.runtimeId);
+  const localRuntimeId = snapshot.localServices.runtime.state === "ready" ? snapshot.localServices.runtime.runtimeId : undefined;
+  const runtimeOptions = [
+    { value: "", label: localRuntimeId ? "请选择本机 Runtime" : "暂无可用本机 Runtime", disabled: true },
+    ...snapshot.runtimes.filter((runtime) => runtime.runtimeId === localRuntimeId).map((runtime) => ({ value: runtime.runtimeId, label: runtime.health === "ready" ? runtime.name : `${runtime.name}（不可用）`, disabled: runtime.health !== "ready" })),
+  ];
+  const updateRuntime = (runtimeId: string) => run({ type: "creation-update", update: { name: session.name, description: session.description, ...(session.avatarUrl ? { avatarUrl: session.avatarUrl } : {}), ...(runtimeId ? { runtimeId } : {}), permissionMode: session.permissionMode, configuration: session.configuration } });
+  const send = async (event: FormEvent) => { event.preventDefault(); if (!text.trim()) return; if (await run({ type: "builder-turn", text: text.trim() })) setText(""); };
+  return <PageSurface icon={Sparkles} title="AI Builder" description="本次对话只在本机运行；离开页面后不会恢复。" back={() => void run({ type: "navigate", route: { name: "agent-create-choice" } })} meta={<span className="save-state">本地一次性会话</span>}>
+    {snapshot.creationValidation && !snapshot.creationValidation.valid && <div className="inline-state is-error builder-validation"><CircleAlert aria-hidden="true" /><span><strong>配置还不完整</strong><small>{snapshot.creationValidation.fieldErrors.map((error) => creationFieldError(error.field)).join("；")}</small></span></div>}
+    <div className="builder-layout"><section className="builder-conversation"><div className="builder-messages">{session.builder.conversation.length ? session.builder.conversation.map((message) => <article className={`builder-message is-${message.role}`} key={message.messageId}><span>{message.role === "assistant" ? <Sparkles aria-hidden="true" /> : <IdentityMark name="你" small />}</span><p>{message.text}</p></article>) : <SurfaceState icon={WandSparkles} title="描述你需要的智能体" description="例如：帮团队分析需求、给出风险清单，并始终用中文简洁回答。" />}{session.builder.recoverableErrorCode && <div className="inline-state is-error"><CircleAlert aria-hidden="true" /><span><strong>Builder 暂时未完成这一步</strong><small>当前页面输入和预览仍在；检查本机 Runtime 后可重试。</small></span></div>}</div><form className="builder-composer" onSubmit={(event) => void send(event)}><textarea value={text} onChange={(event) => setText(event.target.value)} placeholder="描述目标、边界或需要调整的内容…" aria-label="给 AI Builder 的消息" /><span className="composer-save-state">仅保存在当前页面</span><FabricButton tone="primary" type="submit" loading={busy === "builder-turn"} disabled={!text.trim() || selectedRuntime?.health !== "ready"}>发送</FabricButton></form></section><aside className="builder-preview"><div><span>实时预览</span><FabricStatus value={session.builder.state === "failed" ? "failed" : session.builder.state === "in_flight" ? "checking" : "ready"} /></div><h2>{session.name || "未命名智能体"}</h2><p>{session.description || "Builder 的下一次有效建议会显示在这里。"}</p><dl><dt>Runtime</dt><dd><FabricSelect ariaLabel="Builder Runtime" value={session.runtimeId ?? ""} onValueChange={(runtimeId) => void updateRuntime(runtimeId)} options={runtimeOptions} disabled={busy === "builder-turn"} />{!session.runtimeId && <small className="builder-runtime-guidance">发送前请选择一个可用的本机 Runtime。</small>}</dd><dt>模型</dt><dd>{session.configuration.model || "Runtime 默认"}</dd><dt>访问</dt><dd>{permissionLabel(session.permissionMode)}</dd></dl><div className="preview-instructions"><span>Instructions</span><p>{session.configuration.instructions || "尚未生成"}</p></div><FabricButton tone="primary" loading={busy === "creation-submit"} disabled={!session.name.trim() || session.builder.state === "in_flight"} onClick={() => void run({ type: "creation-submit" })}>创建并打开智能体</FabricButton></aside></div>
   </PageSurface>;
 }
 
@@ -436,7 +439,7 @@ function loginErrorMessage(code: string): string {
 }
 
 interface ViewProps { readonly snapshot: AccountProductRendererSnapshot; readonly busy: AccountProductRendererCommand["type"] | undefined; readonly run: (command: AccountProductRendererCommand) => Promise<boolean> }
-function initialSnapshot(): AccountProductRendererSnapshot { return { session: { state: "signed-out", reason: "initial" }, route: { name: "agents" }, connection: "offline", localServices: { runtime: { state: "inactive" }, mcp: { state: "inactive" } }, activities: [], templates: [], drafts: [], runtimes: [], friends: [], incomingFriendInvitations: [], outgoingFriendInvitations: [], legacyRecovery: { state: "not_required" }, loading: true, refreshing: false }; }
+function initialSnapshot(): AccountProductRendererSnapshot { return { session: { state: "signed-out", reason: "initial" }, route: { name: "agents" }, connection: "offline", localServices: { runtime: { state: "inactive" }, mcp: { state: "inactive" } }, activities: [], templates: [], runtimes: [], friends: [], incomingFriendInvitations: [], outgoingFriendInvitations: [], legacyRecovery: { state: "not_required" }, loading: true, refreshing: false }; }
 function routeRoot(name: AccountProductRendererSnapshot["route"]["name"]): "agents" | "runtimes" | "friends" { return name.startsWith("agent") ? "agents" : name.startsWith("runtime") ? "runtimes" : "friends"; }
 function scopeLabel(value: "mine" | "friends" | "archived") { return value === "mine" ? "我的" : value === "friends" ? "好友开放" : "已归档"; }
 function sectionLabel(value: "overview" | "activity" | "capabilities" | "settings") { return value === "overview" ? "概览" : value === "activity" ? "活动" : value === "capabilities" ? "能力" : "设置"; }
@@ -444,7 +447,7 @@ function fragmentState(snapshot: AccountProductRendererSnapshot, fragment: "deta
 function permissionLabel(value: string) { return value === "private" ? "仅自己" : "所有好友可访问"; }
 function accessLabel(value: string) { return value === "owner" ? "我拥有" : value === "friend" ? "好友开放" : "不可调用"; }
 function catalogAgentId(row: NonNullable<AccountProductRendererSnapshot["catalog"]>["rows"][number]): string { return "kind" in row ? row.agentId : row.agent.agentId; }
-function draftFieldError(value: string) { return ({ name: "请填写名称", runtimeId: "请选择可用 Runtime", model: "模型与 Runtime 不兼容", thinkingLevel: "Thinking 选项不受支持", serviceTier: "服务等级不受支持", environment: "环境变量不受 Runtime 支持", customArguments: "自定义参数不受 Runtime 支持", runtimeConfiguration: "Runtime 配置不受支持", access: "请完成访问权限配置", templateId: "模板已不可用", draft: "草稿状态已变化，请刷新" } as Record<string, string>)[value] ?? "请检查草稿配置"; }
+function creationFieldError(value: string) { return ({ name: "请填写名称", runtimeId: "请选择可用的本机 Runtime", model: "模型与 Runtime 不兼容", thinkingLevel: "Thinking 选项不受支持", serviceTier: "服务等级不受支持", environment: "环境变量不受 Runtime 支持", customArguments: "自定义参数不受 Runtime 支持", runtimeConfiguration: "Runtime 配置不受支持", configuration: "请检查智能体配置" } as Record<string, string>)[value] ?? "请检查智能体配置"; }
 function parseEnvironmentValues(value: string): Record<string, string> {
   const result: Record<string, string> = {};
   for (const line of value.split(/\r?\n/u).map((item) => item.trim()).filter(Boolean)) {
@@ -470,4 +473,4 @@ function parseCredentialJson(value: string): Record<string, Record<string, strin
 function capabilityCount(value: Record<string, unknown>) { return Object.values(value).filter((item) => item === true).length; }
 function formatDate(value?: string) { return value ? new Intl.DateTimeFormat("zh-CN", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(value)) : "—"; }
 function formatRelative(value?: string) { if (!value) return "—"; const delta = Date.now() - Date.parse(value); if (delta < 60_000) return "刚刚"; if (delta < 3_600_000) return `${Math.floor(delta / 60_000)} 分钟前`; if (delta < 86_400_000) return `${Math.floor(delta / 3_600_000)} 小时前`; return formatDate(value); }
-function errorMessage(error: unknown) { const value = error instanceof Error ? error.message : "account-product-operation-failed"; return ({ "authentication-required": "登录已过期，请重新登录。", "account-agent-version-conflict": "此智能体已在其他位置修改，请刷新后重试。", "runtime-authentication-required": "Runtime 需要先完成本地认证。", "runtime-refresh-not-local": "请在 Runtime 所在设备执行检测。" } as Record<string, string>)[value] ?? "操作未完成，数据已保留，请重试。"; }
+function errorMessage(error: unknown) { const value = error instanceof Error ? error.message : "account-product-operation-failed"; return ({ "authentication-required": "登录已过期，请重新登录。", "account-agent-version-conflict": "此智能体已在其他位置修改，请刷新后重试。", "builder-runtime-policy-required": "本机 Runtime 请求了 Builder 不允许的权限。", "builder-output-malformed": "本机 Runtime 未返回有效的智能体配置，请重试。", "builder-runtime-failed": "本机 Runtime 暂时未完成这一步，请重试。", "runtime-authentication-required": "Runtime 需要先完成本地认证。", "runtime-not-ready": "所选本机 Runtime 当前不可用，请重新检测。", "runtime-refresh-not-local": "请在 Runtime 所在设备执行检测。" } as Record<string, string>)[value] ?? "操作未完成，当前页面数据仍保留，请重试。"; }

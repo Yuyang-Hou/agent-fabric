@@ -27,7 +27,7 @@ Agent Fabric 聚焦 Agents 本身。Account 是个人资源与 Runtime 的隔离
 - 登录使用 Google 系统浏览器；首次登录创建该 Human 唯一的个人 Account。好友邀请只进入匹配已验证身份的邀请收件箱，不加入邀请人的 Account。
 - 已登录后主导航固定为“智能体”“运行时”“好友”，Account/退出和连接状态保持次级。
 - 一个个人 Account 可以拥有多个 Agent；Agents 页面提供我的、好友开放、已归档范围。
-- 新建 Agent 支持空白创建、模板创建和 AI Builder，草稿可恢复。
+- 新建 Agent 支持空白创建、模板创建和 AI Builder；Builder 直接调用本机 Runtime，页面内状态离开即丢弃，仅最终创建请求进入 Cloud。
 - Owner Agent 详情按概览、活动、能力和设置组织；好友 Agent 只有独立只读安全摘要。
 - Codex MCP 只发现本人和好友当前开放且可调用的 Agent，并通过标准 A2A Message/Task/Artifact 完成问答。
 

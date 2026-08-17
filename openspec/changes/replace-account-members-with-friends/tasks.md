@@ -22,7 +22,6 @@
 - [x] 3.5 Enforce one product Owner per personal Account while retaining transitional owner membership rows only as internal foreign-key compatibility.
 - [x] 3.6 Implement the read-only live-data audit for non-owner memberships/resources/sessions, pending member invitations and legacy non-private access; make unsafe data a deployment stop condition.
 - [x] 3.7 Add migration, concurrency, expiry, duplicate pair, self-invite, email mismatch, replay, revocation and sensitive-column persistence tests.
-- [x] 3.8 Restore member-era Builder drafts fail closed as private and discard obsolete invocation targets without blocking Desktop login bootstrap.
 
 ## 4. Replace Account member and authentication APIs
 
@@ -76,3 +75,15 @@
 - [ ] 9.4 Prove B sees A's friend-opened Agent safe summary in Desktop and MCP, receives a real standard A2A answer, and cannot access A's Runtime/configuration/Activity/secrets.
 - [ ] 9.5 Prove private toggle and friend removal immediately remove Desktop/MCP discovery, deny new delivery and deny prior Task reread without Runtime execution; capture approved desktop/narrow screenshots and reconcile the bounded visual/accessibility review.
 - [ ] 9.6 After real acceptance, record final delivery evidence, keep any unproven N→N+1 updater gate pending until a later signed beta exists, and approve only the gates actually proven.
+
+## 10. Replace Agent drafts with a local AI Builder session
+
+- [x] 10.1 Replace Desktop draft routes, autosave, restore, server version and conflict retry state with a fresh in-memory Builder session that is discarded on leave or restart.
+- [x] 10.2 Replace AgentDraft Client/IPC/Domain commands and methods with local Builder start/turn/close contracts and one final validated Agent create command.
+- [x] 10.3 Execute multi-turn Builder inference from Desktop/Edge directly through the selected healthy local Runtime Adapter while keeping Runtime-private state outside Renderer and Cloud.
+- [x] 10.4 Make the final create action validate locally, send exactly one complete Agent create request without automatic retry, and navigate to the created Agent detail on success.
+- [x] 10.5 Remove `/v1/agent-drafts*`, Cloud Builder-turn orchestration and draft repository code from Server runtime registration and supported client surfaces.
+- [x] 10.6 Add a safe persistence retirement migration that stops draft reads/writes while preserving existing tables and rows for rollback; document the separately gated future deletion path.
+- [x] 10.7 Update product docs, schemas, fixtures and compatibility checks so no current runtime surface advertises draft IDs, continue draft, restore, autosave or version conflicts.
+- [x] 10.8 Add unit/contract/Desktop tests proving no draft network request, local multi-turn success with Cloud unavailable, discard-on-leave, local validation failure with zero create calls and exactly one final create request.
+- [x] 10.9 Run strict OpenSpec, typecheck, lint, full unit/contract/migration/Desktop gates and a real local App acceptance with request tracing; do not commit or deploy.

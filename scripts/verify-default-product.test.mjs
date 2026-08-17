@@ -18,7 +18,6 @@ const baseConfig = {
     "packages/account-agent-domain/src",
     "apps/server/src/server.ts",
     "apps/server/src/account-agent-a2a.ts",
-    "apps/server/src/account-agent-builder.ts",
     "apps/server/src/account-invalidation.ts",
     "apps/server/src/account-runtime-tunnel.ts",
     "apps/edge-host/src/account-agents",

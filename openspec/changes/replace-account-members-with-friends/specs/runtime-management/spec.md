@@ -5,7 +5,7 @@ The system SHALL list Runtimes only for the signed-in Human's personal Account w
 
 #### Scenario: Codex Runtime is healthy
 - **WHEN** the owner's Edge detects a usable authenticated Codex Adapter
-- **THEN** the Runtime appears ready and is selectable by that owner's Agent creation/configuration flows
+- **THEN** the Runtime appears ready and is selectable by that owner's Agent creation/configuration flows and local AI Builder
 
 #### Scenario: Provider is not implemented
 - **WHEN** a Runtime provider has no working Adapter
@@ -22,9 +22,13 @@ Each Runtime SHALL be private to its personal Account owner and MAY be bound onl
 - **WHEN** the owner selects a healthy Runtime from their personal Account during create, update, Builder switch or rebind
 - **THEN** the binding succeeds subject to capability and concurrency policy
 
+#### Scenario: Builder executes directly on the selected Runtime
+- **WHEN** the owner sends an AI Builder turn with a healthy selected local Runtime
+- **THEN** Desktop/Edge MUST invoke that Runtime through the local Runtime Adapter without Cloud Builder orchestration and without exposing Runtime-private state to Renderer or Server
+
 #### Scenario: Friend attempts Runtime binding
 - **WHEN** a friend submits another Human's Runtime or Agent identifiers to any binding route
-- **THEN** the operation is denied and the draft/Agent/Runtime remain unchanged
+- **THEN** the operation is denied and the local Builder state, Agent and Runtime remain unchanged
 
 ### Requirement: Runtime management is owner-only, recoverable and observable
 The Runtime list/detail UI SHALL support the owner in discovery/registration, rename, refresh, authentication guidance, delete/unbind and all loading/empty/error/offline states without exposing credentials. It MUST NOT present visibility controls for sharing Runtime with friends or show another Human's Runtime.
