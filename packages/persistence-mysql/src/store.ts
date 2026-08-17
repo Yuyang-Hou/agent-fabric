@@ -224,7 +224,7 @@ export class MySqlStore {
   async health(): Promise<{ readonly database: "ready"; readonly schemaVersion: number }> {
     const [rows] = await this.pool.query<VersionRow[]>("SELECT COALESCE(MAX(version), 0) AS version FROM schema_migrations");
     const schemaVersion = Number(rows[0]?.version ?? 0);
-    if (schemaVersion !== 11) throw new MySqlPersistenceError("schema-incompatible");
+    if (schemaVersion !== 12) throw new MySqlPersistenceError("schema-incompatible");
     return { database: "ready", schemaVersion };
   }
 

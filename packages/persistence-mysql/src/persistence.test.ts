@@ -10,6 +10,12 @@ describe("MySQL persistence boundary", () => {
     expect(legacyCreationStateRetirementV12MySqlMigrationStatements).toEqual([]);
   });
 
+  it("reports the retired creation-state schema as ready", async () => {
+    const store = new MySqlStore("mysql://unused:unused@localhost/unused");
+    Object.defineProperty(store, "pool", { value: { query: async () => [[{ version: 12 }], []], end: async () => undefined } });
+    await expect(store.health()).resolves.toEqual({ database: "ready", schemaVersion: 12 });
+  });
+
   it("contains every governance table and no raw content columns", () => {
     for (const table of ["fabric_instances", "principals", "credentials", "audit_events"]) {
       expect(migrationSql).toContain(`TABLE IF NOT EXISTS ${table}`);
