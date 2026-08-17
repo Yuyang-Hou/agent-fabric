@@ -689,9 +689,9 @@ function accountPageRequest(request: Request): { readonly limit: number; readonl
   }
 }
 
-function accountAgentScope(request: Request): "mine" | "all" | "archived" {
-  const value = optionalQueryString(request, "scope") ?? "all";
-  if (value !== "mine" && value !== "all" && value !== "archived") throw new Error("agent-scope-invalid");
+function accountAgentScope(request: Request): AgentCatalogQuery["scope"] {
+  const value = optionalQueryString(request, "scope") ?? "mine";
+  if (value !== "mine" && value !== "friends" && value !== "archived") throw new Error("agent-scope-invalid");
   return value;
 }
 

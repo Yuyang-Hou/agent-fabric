@@ -31,7 +31,9 @@ describe("Account Agents API", () => {
       getAccountAgentForCredential: vi.fn().mockResolvedValue(agents[0]),
       getAccountAgentDetailForCredential: vi.fn().mockImplementation(async () => detail()),
       listAccountAgentsForCredential: vi.fn().mockResolvedValue({ items: agents, counts: { mine: 3, friends: 0, archived: 0 } }),
-      queryAccountAgentCatalogForCredential: vi.fn().mockResolvedValue({ accountId: "account:one", scope: "mine", rows, counts: { mine: 3, friends: 0, archived: 0 }, nextCursor: { sortValue: "7", id: "agent:three" } }),
+      queryAccountAgentCatalogForCredential: vi.fn()
+        .mockResolvedValueOnce({ accountId: "account:one", scope: "mine", rows, counts: { mine: 3, friends: 0, archived: 0 }, nextCursor: { sortValue: "7", id: "agent:three" } })
+        .mockResolvedValueOnce({ accountId: "account:one", scope: "friends", rows: [], counts: { mine: 3, friends: 0, archived: 0 } }),
       updateAccountAgentForCredential: vi.fn().mockImplementation(async () => { detailAgent = { ...agents[0]!, name: "Renamed", version: 2 }; return detailAgent; }),
       archiveAccountAgentForCredential: vi.fn().mockResolvedValue({ ...agents[0], archivedAt: "2026-08-13T00:01:00.000Z", archivedByUserId: "human:owner", version: 2 }),
       restoreAccountAgentForCredential: vi.fn().mockResolvedValue({ agent: { ...agents[0], version: 3 }, needsRuntime: true }),
@@ -69,6 +71,12 @@ describe("Account Agents API", () => {
       expect(JSON.stringify(listBody)).not.toMatch(/"instructions":|"customArguments":|"runtimeConfiguration":|"mcpConnections":|"integrations":/iu);
       expect(store.queryAccountAgentCatalogForCredential).toHaveBeenCalledWith("credential:owner", {
         scope: "mine", search: "agent", availability: ["online", "unstable"], runtimeIds: ["runtime:one"], ownerUserIds: ["human:owner"], models: ["gpt-5"], access: ["owner"], sort: "runs", limit: 25, after: { sortValue: "9", id: "agent:cursor" },
+      });
+      const friendList = await fetch(`${server.address()}/v1/agents?scope=friends&access=friend&sort=last_active&limit=100`, { headers });
+      expect(friendList.status).toBe(200);
+      expect(await friendList.json()).toEqual({ accountId: "account:one", scope: "friends", rows: [], counts: { mine: 3, friends: 0, archived: 0 } });
+      expect(store.queryAccountAgentCatalogForCredential).toHaveBeenLastCalledWith("credential:owner", {
+        scope: "friends", availability: [], runtimeIds: [], ownerUserIds: [], models: [], access: ["friend"], sort: "last_active", limit: 100,
       });
       const detailResponse = await fetch(`${server.address()}/v1/agents/agent:one`, { headers });
       expect(detailResponse.headers.get("etag")).toBe('"agent:1"');
