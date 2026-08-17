@@ -15,6 +15,33 @@ The signed-in Desktop SHALL use a quiet macOS-oriented App Shell with compact gr
 - **WHEN** an old single Personal Agent/Friends/Activity route or default state is opened
 - **THEN** it redirects to the current product or displays an explicit migration state and never becomes competing primary navigation
 
+### Requirement: Login is a focused Multica-aligned single task
+The signed-out Desktop SHALL present one centered login card with an ordinary-email field and Continue action plus a separate Google login action. Email login SHALL progress to one six-digit verification-code step with target context, resend countdown, back action and truthful busy/error states. The surface MUST NOT request or imply a password, and MUST NOT expose internal authentication identifiers or secrets.
+
+#### Scenario: Valid email is submitted
+- **WHEN** the Human enters a syntactically valid email and activates Continue while `email-otp-login` is available
+- **THEN** the Desktop requests a code once, disables duplicate submission while pending and opens the six-digit code step without claiming authentication is complete
+
+#### Scenario: Code is entered
+- **WHEN** the Human enters six digits
+- **THEN** the Desktop submits one verification attempt, presents a bounded generic error on failure, and opens the signed-in product only after the one-time proof is exchanged for a valid device credential
+
+#### Scenario: Resend is requested
+- **WHEN** sixty seconds have elapsed and the Human activates resend
+- **THEN** the Desktop requests one replacement code, restarts the countdown and does not reveal whether the email was previously registered
+
+#### Scenario: Human returns to edit email
+- **WHEN** the Human activates the back action from the code step
+- **THEN** the transient code is discarded, the email step returns and no authenticated state is retained
+
+#### Scenario: Google login is selected
+- **WHEN** the Human activates Google login
+- **THEN** the system-browser OIDC flow opens with visible pending/cancel/error feedback and returns through the same one-time device-credential exchange boundary
+
+#### Scenario: Email login is not configured
+- **WHEN** Server capabilities omit `email-otp-login`
+- **THEN** the Desktop omits the email controls, keeps Google login usable and does not render a dead or development-only code path
+
 ### Requirement: Agents collection matches the reference interaction model and authority split
 The Agents page SHALL provide a collection header and owner-only New Agent action; local search; `mine`, `friends` and `archived` scopes with counts; supported filters/sort/columns; dense identity rows; and complete loading, empty, no-match and error states. Owned rows SHALL expose permitted management actions; friend-opened rows SHALL expose only safe read-only summary and invocation availability.
 

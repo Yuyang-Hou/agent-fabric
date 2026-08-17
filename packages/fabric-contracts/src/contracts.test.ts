@@ -5,8 +5,9 @@ import {
   componentVersionSchema,
   joinExchangeRequestSchema,
   joinStartRequestSchema,
-  ownerLoginExchangeResponseSchema,
-  ownerLoginStartRequestSchema,
+  deviceLoginExchangeResponseSchema,
+  deviceLoginStartRequestSchema,
+  emailLoginCodeRequestSchema,
 } from "./index.js";
 
 const component = componentVersionSchema.parse({
@@ -33,13 +34,13 @@ describe("Account Agents shared contracts", () => {
   });
 
   it("keeps self-service Account login bounded", () => {
-    expect(ownerLoginStartRequestSchema.parse({
+    expect(deviceLoginStartRequestSchema.parse({
       codeChallenge: "a".repeat(43),
       returnUri: "http://127.0.0.1:4567/callback",
       clientState: "b".repeat(32),
       deviceName: "Owner Mac",
     })).not.toHaveProperty("scopes");
-    expect(ownerLoginExchangeResponseSchema.parse({
+    expect(deviceLoginExchangeResponseSchema.parse({
       server: "https://fabric.example",
       token: "owner-secret",
       humanPrincipalId: "human:alice",
@@ -48,6 +49,7 @@ describe("Account Agents shared contracts", () => {
       displayName: "Alice",
       expiresAt: "2026-09-11T00:00:00.000Z",
     })).not.toHaveProperty("serverAdmin");
+    expect(emailLoginCodeRequestSchema.parse({ email: "alice@example.com", codeChallenge: "a".repeat(43), returnUri: "http://127.0.0.1:4567/callback", clientState: "b".repeat(32), deviceName: "Owner Mac" })).toMatchObject({ email: "alice@example.com" });
   });
 
   it("fails closed on protocol mismatch", () => {

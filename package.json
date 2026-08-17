@@ -47,6 +47,6 @@
     "eslint": "9.39.5",
     "typescript": "5.9.2",
     "typescript-eslint": "8.65.0",
-    "vitest": "3.2.4"
+    "vitest": "3.2.6"
   }
 }

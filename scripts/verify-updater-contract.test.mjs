@@ -16,7 +16,7 @@ test("pins one public packaged-only GitHub beta updater contract", async () => {
   const releaseGates = JSON.parse(releaseGatesText);
   const boundaries = JSON.parse(boundariesText);
 
-  assert.equal(desktopPackage.dependencies["electron-updater"], "6.8.3");
+  assert.equal(desktopPackage.dependencies["electron-updater"], "6.8.9");
   assert.match(desktopPackage.scripts["package:mac"], /electron-builder --mac dmg zip --arm64/u);
   assert.match(desktopPackage.scripts["package:mac"], /--publish never/u);
   assert.match(builder, /target:\n\s+- dmg\n\s+- zip/u);

@@ -10,7 +10,7 @@ export {
 export {
   DesktopAccountProductAuthentication,
   type AccountProductCredentialVaultPort,
-  type AccountProductGoogleLoginPort,
+  type AccountProductLoginPort,
   type AccountProductSessionActivation,
 } from "./account-product/authentication.js";
 export {

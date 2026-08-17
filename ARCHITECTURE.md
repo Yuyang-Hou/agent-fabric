@@ -5,7 +5,7 @@
 
 ## 1. 当前产品
 
-Agent Fabric 是一个个人多 Agent 管理与好友互联产品。每个 Human 通过 Google 登录进入自己唯一的个人 Account，在其中管理私有 Runtime 和多个 Agent；Human 之间通过无角色的邀请建立对称好友关系。Agent Owner 可将某个 Agent 设为仅自己或好友可访问。好友开放的 Agent 会以安全摘要出现在对方 Desktop Agent 管理和薄 MCP 中，并使用标准 A2A Message、Task 和 Artifact 完成问答。
+Agent Fabric 是一个个人多 Agent 管理与好友互联产品。每个 Human 通过普通邮箱验证码或 Google 登录进入自己唯一的个人 Account，在其中管理私有 Runtime 和多个 Agent；Human 之间通过无角色的邀请建立对称好友关系。Agent Owner 可将某个 Agent 设为仅自己或好友可访问。好友开放的 Agent 会以安全摘要出现在对方 Desktop Agent 管理和薄 MCP 中，并使用标准 A2A Message、Task 和 Artifact 完成问答。
 
 Account 是个人资源和 Runtime 的租户隔离边界，不是好友关系或组织成员关系。产品没有 Account 切换、Workspace、项目、任务板、Inbox、通用聊天、自动化或统计大盘。当前领域模型不包含 AgentSpec、Revision、Deployment、发布、回滚或持久化 Agent Card；Agent 直接保存当前配置并绑定 Runtime，Agent Card 从当前可调用数据按需投影。
 
@@ -16,7 +16,7 @@ Multica 固定研究提交只用于 clean-room 功能、信息架构和交互对
 ```text
 macOS Desktop
   ├─ Personal Account UI: Agents / Runtimes / Friends
-  ├─ Google system-browser login + secure credential vault
+  ├─ email OTP / Google system-browser login + secure credential vault
   └─ local Account Host
        ├─ four-tool Codex MCP
        └─ Account Runtime registration
@@ -51,7 +51,7 @@ Cloud does not run an Owner Agent and does not host model credentials. Edge only
 
 ## 4. Account control plane
 
-The Control Plane owns Google identity, personal Account ownership, friend invitations, normalized Human Friendships, Agents, Runtimes, access modes, activities, short-lived self-test requesters and A2A routing authorization. MySQL is the commercial persistence path. Transitional owner membership rows may remain only as internal foreign-key compatibility and are not a product role model.
+The Control Plane uses Better Auth to verify Google or email-OTP identity, then owns the stable Better Auth user-to-Human mapping, personal Account ownership, friend invitations, normalized Human Friendships, Agents, Runtimes, access modes, activities, short-lived self-test requesters and A2A routing authorization. MySQL is the commercial persistence path. Transitional owner membership rows may remain only as internal foreign-key compatibility and are not a product role model.
 
 Agent management and Agent invocation are separate permissions. Only the owning Human manages an Agent or Runtime. Invocation admits the owner, or an active Human friend when the Agent is currently `friends`; Friendship grants no Account, Runtime, configuration, Activity, Skill or secret authority. Cross-Account not-found and denied responses are indistinguishable. Every Desktop/MCP discovery, send and Task read rechecks current Friendship and Agent access; friend removal, private toggle and archive take effect without reinstalling MCP.
 
@@ -80,7 +80,7 @@ Default policy fails closed for unsupported capabilities, missing authentication
 
 ## 7. Desktop product architecture
 
-The signed-out surface is Google login. The signed-in shell has exactly Agents, Runtimes and Friends. Friends separates active friends, received invitations and sent invitations. Agents separates owned, friend-opened and archived scopes; friend rows and detail use a read-only safe projection with no management actions. Collection, creation, detail, settings, impact dialogs and state notices use Agent Fabric-owned components and semantic tokens.
+The signed-out surface is a centered ordinary-email flow with Google as an alternative. Better Auth, provider and SMTP sessions remain server-side; email, OTP and PKCE attempt state remain transient in Desktop Main and never enter Renderer snapshots. Only the resulting device credential is stored through the macOS secure credential vault. The signed-in shell has exactly Agents, Runtimes and Friends. Friends separates active friends, received invitations and sent invitations. Agents separates owned, friend-opened and archived scopes; friend rows and detail use a read-only safe projection with no management actions. Collection, creation, detail, settings, impact dialogs and state notices use Agent Fabric-owned components and semantic tokens.
 
 Every asynchronous surface provides loading, empty, no-match, stale, recoverable error, permission and offline behavior. Destructive changes fetch real impact and use concurrency tokens. Unsupported Runtime capabilities are absent or explicitly unavailable. Narrow layouts keep key actions operable without document-level horizontal overflow.
 

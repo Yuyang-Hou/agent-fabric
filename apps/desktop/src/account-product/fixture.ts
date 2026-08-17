@@ -61,8 +61,11 @@ export function createAccountProductFixtureBridge(initialRoute = "agents", onCom
     async command(command) {
       onCommand?.(command);
       snapshot = fixtureCommand(snapshot, command);
-      accountProductRendererCommandResultSchema.parse({ type: "snapshot", snapshot });
+      const result = accountProductRendererCommandResultSchema.parse(command.type === "login-email-request"
+        ? { type: "email-code-requested", expiresAt: "2026-08-13T08:35:00.000Z", resendAfterSeconds: 60, snapshot }
+        : { type: "snapshot", snapshot });
       emit();
+      return result;
     },
   };
 }

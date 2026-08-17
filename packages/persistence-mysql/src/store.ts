@@ -76,7 +76,7 @@ import { credentialScopeSchema, principalKindSchema, type CredentialScope, type 
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import mysql, { type Pool, type PoolConnection, type ResultSetHeader as ResultHeader, type RowDataPacket } from "mysql2/promise";
 
-import { accountAgentA2AMySqlMigrationStatements, accountAgentCreationV8MySqlMigrationStatements, accountAgentMySqlMigrationStatements, accountRuntimeDeletionV7MySqlMigrationStatements, accountSelfTestV10MySqlMigrationStatements, applyHumanFriendshipV11Migration, initialMySqlMigrationStatements, legacyCreationStateRetirementV12MySqlMigrationStatements, legacyMigrationRecoveryV9MySqlMigrationStatements, onboardingMySqlMigrationStatements, personalAgentMySqlMigrationStatements, selfServiceMySqlMigrationStatements } from "./migration.js";
+import { accountAgentA2AMySqlMigrationStatements, accountAgentCreationV8MySqlMigrationStatements, accountAgentMySqlMigrationStatements, accountRuntimeDeletionV7MySqlMigrationStatements, accountSelfTestV10MySqlMigrationStatements, applyHumanFriendshipV11Migration, initialMySqlMigrationStatements, legacyCreationStateRetirementV12MySqlMigrationStatements, legacyMigrationRecoveryV9MySqlMigrationStatements, onboardingMySqlMigrationStatements, personalAgentMySqlMigrationStatements, selfServiceMySqlMigrationStatements, unifiedAuthenticationV13MySqlMigrationStatements } from "./migration.js";
 
 const migrationLockName = "agent_fabric_schema_migration";
 const legacyMigrationPrivateFields = ["environment_values", "runtime_credentials", "runtime_configuration", "agent_mcp_credentials", "integration_credentials", "private_skill_contents"] as const;
@@ -163,7 +163,7 @@ export class MySqlStore {
       await connection.query(initialMySqlMigrationStatements[0]);
       const [versionRows] = await connection.query<VersionRow[]>("SELECT COALESCE(MAX(version), 0) AS version FROM schema_migrations");
       const current = Number(versionRows[0]?.version ?? 0);
-      if (current > 12) throw new MySqlPersistenceError("schema-newer-than-server");
+      if (current > 13) throw new MySqlPersistenceError("schema-newer-than-server");
       if (current < 1) {
         for (const statement of initialMySqlMigrationStatements.slice(1)) await connection.query(statement);
         await connection.query("INSERT IGNORE INTO schema_migrations(version) VALUES (1)");
@@ -214,6 +214,10 @@ export class MySqlStore {
         for (const statement of legacyCreationStateRetirementV12MySqlMigrationStatements) await connection.query(statement);
         await connection.query("INSERT IGNORE INTO schema_migrations(version) VALUES (12)");
       }
+      if (current < 13) {
+        for (const statement of unifiedAuthenticationV13MySqlMigrationStatements) await connection.query(statement);
+        await connection.query("INSERT IGNORE INTO schema_migrations(version) VALUES (13)");
+      }
       await connection.execute("INSERT IGNORE INTO fabric_instances(instance_id,public_base_url,created_at,bootstrap_consumed_at) VALUES ('instance:account-product','internal',UTC_TIMESTAMP(3),UTC_TIMESTAMP(3))");
     } finally {
       if (locked) await connection.query("SELECT RELEASE_LOCK(?)", [migrationLockName]).catch(() => undefined);
@@ -224,7 +228,7 @@ export class MySqlStore {
   async health(): Promise<{ readonly database: "ready"; readonly schemaVersion: number }> {
     const [rows] = await this.pool.query<VersionRow[]>("SELECT COALESCE(MAX(version), 0) AS version FROM schema_migrations");
     const schemaVersion = Number(rows[0]?.version ?? 0);
-    if (schemaVersion !== 12) throw new MySqlPersistenceError("schema-incompatible");
+    if (schemaVersion !== 13) throw new MySqlPersistenceError("schema-incompatible");
     return { database: "ready", schemaVersion };
   }
 
@@ -291,182 +295,134 @@ export class MySqlStore {
     });
   }
 
-  async createOwnerLoginSession(input: {
-    readonly oauthStateDigest: string; readonly nonceDigest: string; readonly returnUri: string; readonly clientState: string;
-    readonly codeChallenge: string; readonly deviceName: string; readonly expiresAt: string; readonly createdAt?: string;
-  }): Promise<{ readonly joinSessionId: string }> {
-    const createdAt = input.createdAt ?? new Date().toISOString(); const joinSessionId = `login:${randomUUID()}`;
+  async createAccountLoginAttempt(input: {
+    readonly method: "google" | "email";
+    readonly returnUri: string;
+    readonly clientState: string;
+    readonly codeChallenge: string;
+    readonly deviceName: string;
+    readonly email?: string;
+    readonly expiresAt: string;
+    readonly createdAt?: string;
+  }): Promise<{ readonly attemptId: string; readonly expiresAt: string }> {
+    const createdAt = input.createdAt ?? new Date().toISOString();
+    const attemptId = `auth-attempt:${randomUUID()}`;
     await this.pool.execute(String.raw`
-      INSERT INTO join_sessions(join_session_id, invitation_id, oauth_state_digest, nonce_digest, return_uri, client_state, code_challenge, device_name, expires_at, created_at, purpose)
-      VALUES (?,NULL,?,?,?,?,?,?,?,?,'owner')
-    `, [joinSessionId, input.oauthStateDigest, input.nonceDigest, input.returnUri, input.clientState, input.codeChallenge, input.deviceName, sqlDate(input.expiresAt), sqlDate(createdAt)]);
-    return { joinSessionId };
+      INSERT INTO account_device_login_attempts(
+        attempt_id,method,return_uri,client_state,code_challenge,device_name,email_digest,expires_at,created_at
+      ) VALUES (?,?,?,?,?,?,?,?,?)
+    `, [attemptId, input.method, input.returnUri, input.clientState, input.codeChallenge, input.deviceName.slice(0, 120), input.email ? hashCredential(input.email.trim().toLowerCase()) : null, sqlDate(input.expiresAt), sqlDate(createdAt)]);
+    return { attemptId, expiresAt: input.expiresAt };
   }
 
-  async createAccountMemberJoinSession(input: {
-    readonly invitationTokenDigest: string; readonly oauthStateDigest: string; readonly nonceDigest: string;
-    readonly returnUri: string; readonly clientState: string; readonly codeChallenge: string; readonly deviceName: string;
-    readonly expiresAt: string; readonly createdAt?: string;
-  }): Promise<{ readonly joinSessionId: string }> {
-    const createdAt = input.createdAt ?? new Date().toISOString();
+  async getAccountLoginAttempt(attemptId: string, now = new Date().toISOString()): Promise<{
+    readonly attemptId: string;
+    readonly method: "google" | "email";
+    readonly returnUri: string;
+    readonly clientState: string;
+    readonly expiresAt: string;
+    readonly emailDigest?: string;
+  }> {
+    const [rows] = await this.pool.execute<AccountLoginAttemptRow[]>(String.raw`
+      SELECT * FROM account_device_login_attempts
+      WHERE attempt_id=? AND authenticated_at IS NULL AND consumed_at IS NULL AND expires_at>?
+    `, [attemptId, sqlDate(now)]);
+    const row = rows[0];
+    if (!row) throw new MySqlPersistenceError("login-attempt-unavailable");
+    return { attemptId: row.attempt_id, method: row.method, returnUri: row.return_uri, clientState: row.client_state, expiresAt: toIso(row.expires_at), ...(row.email_digest ? { emailDigest: row.email_digest } : {}) };
+  }
+
+  async cancelAccountLoginAttempt(attemptId: string, now = new Date().toISOString()): Promise<{ readonly returnUri: string; readonly clientState: string }> {
     return this.#transaction(async (connection) => {
-      const [rows] = await connection.execute<AccountInvitationAvailabilityRow[]>(String.raw`
-        SELECT invitation_id,status,expires_at,accepted_at,revoked_at
-        FROM account_member_invitations WHERE token_digest=? FOR UPDATE
-      `, [input.invitationTokenDigest]);
-      const invitation = rows[0];
-      if (!invitation || invitation.status !== "pending" || invitation.accepted_at || invitation.revoked_at || Date.parse(toIso(invitation.expires_at)) <= Date.parse(createdAt)) {
-        throw new MySqlPersistenceError("account-invitation-unavailable");
-      }
-      const joinSessionId = `account-join:${randomUUID()}`;
-      await connection.execute(String.raw`
-        INSERT INTO join_sessions(
-          join_session_id,invitation_id,account_invitation_id,oauth_state_digest,nonce_digest,return_uri,
-          client_state,code_challenge,device_name,expires_at,created_at,purpose
-        ) VALUES (?,NULL,?,?,?,?,?,?,?,?,?,'account_invite')
-      `, [joinSessionId, invitation.invitation_id, input.oauthStateDigest, input.nonceDigest, input.returnUri, input.clientState, input.codeChallenge, input.deviceName, sqlDate(input.expiresAt), sqlDate(createdAt)]);
-      return { joinSessionId };
+      const [rows] = await connection.execute<AccountLoginAttemptRow[]>("SELECT * FROM account_device_login_attempts WHERE attempt_id=? FOR UPDATE", [attemptId]);
+      const row = rows[0];
+      if (!row || row.authenticated_at || row.consumed_at || Date.parse(toIso(row.expires_at)) <= Date.parse(now)) throw new MySqlPersistenceError("login-attempt-unavailable");
+      await connection.execute("UPDATE account_device_login_attempts SET consumed_at=? WHERE attempt_id=?", [sqlDate(now), attemptId]);
+      return { returnUri: row.return_uri, clientState: row.client_state };
     });
   }
 
-  async getAuthSessionByState(oauthStateDigest: string): Promise<{ readonly joinSessionId: string; readonly nonceDigest: string; readonly expiresAt: string; readonly purpose: "owner" | "account_invite"; readonly returnUri: string; readonly clientState: string }> {
-    const [rows] = await this.pool.execute<(JoinStateRow & { purpose: string })[]>("SELECT join_session_id, nonce_digest, expires_at, authenticated_at, consumed_at, purpose, return_uri, client_state FROM join_sessions WHERE oauth_state_digest=?", [oauthStateDigest]);
-    const row = rows[0];
-    if (!row || row.authenticated_at || row.consumed_at || Date.parse(toIso(row.expires_at)) <= Date.now()) throw new MySqlPersistenceError("join-session-unavailable");
-    if (row.purpose !== "owner" && row.purpose !== "account_invite") throw new MySqlPersistenceError("join-session-unavailable");
-    const purpose = row.purpose;
-    return { joinSessionId: row.join_session_id, nonceDigest: row.nonce_digest, expiresAt: toIso(row.expires_at), purpose, returnUri: row.return_uri, clientState: row.client_state };
-  }
-
-  async cancelAuthSession(joinSessionId: string, cancelledAt = new Date().toISOString()): Promise<void> {
-    const [result] = await this.pool.execute<ResultHeader>("UPDATE join_sessions SET consumed_at=? WHERE join_session_id=? AND authenticated_at IS NULL AND consumed_at IS NULL AND expires_at > ?", [sqlDate(cancelledAt), joinSessionId, sqlDate(cancelledAt)]);
-    if (result.affectedRows !== 1) throw new MySqlPersistenceError("join-session-unavailable");
-  }
-
-  async authenticateJoinSession(input: {
-    readonly joinSessionId: string; readonly issuer: string; readonly subjectDigest: string; readonly displayName: string;
-    readonly email?: string; readonly exchangeDigest: string; readonly authenticatedAt?: string;
+  async authenticateAccountLoginAttempt(input: {
+    readonly attemptId: string;
+    readonly expectedMethod: "google" | "email";
+    readonly authUserId: string;
+    readonly verifiedEmail: string;
+    readonly displayName: string;
+    readonly proofDigest: string;
+    readonly authenticatedAt?: string;
   }): Promise<{ readonly returnUri: string; readonly clientState: string }> {
     const authenticatedAt = input.authenticatedAt ?? new Date().toISOString();
+    const email = input.verifiedEmail.trim().toLowerCase();
     const [result] = await this.pool.execute<ResultHeader>(String.raw`
-      UPDATE join_sessions SET identity_issuer=?, subject_digest=?, display_name=?, identity_email=?, exchange_digest=?, authenticated_at=?
-      WHERE join_session_id=? AND authenticated_at IS NULL AND consumed_at IS NULL AND expires_at > ?
-    `, [input.issuer, input.subjectDigest, input.displayName, input.email?.trim().toLowerCase() ?? null, input.exchangeDigest, sqlDate(authenticatedAt), input.joinSessionId, sqlDate(authenticatedAt)]);
-    if (result.affectedRows !== 1) throw new MySqlPersistenceError("join-session-unavailable");
-    const [rows] = await this.pool.execute<JoinReturnRow[]>("SELECT return_uri, client_state FROM join_sessions WHERE join_session_id=?", [input.joinSessionId]);
+      UPDATE account_device_login_attempts
+      SET auth_user_id=?,verified_email=?,display_name=?,proof_digest=?,authenticated_at=?
+      WHERE attempt_id=? AND method=? AND (method<>'email' OR email_digest=?) AND authenticated_at IS NULL AND consumed_at IS NULL AND expires_at>?
+    `, [input.authUserId, email, input.displayName.slice(0, 120), input.proofDigest, sqlDate(authenticatedAt), input.attemptId, input.expectedMethod, hashCredential(email), sqlDate(authenticatedAt)]);
+    if (result.affectedRows !== 1) throw new MySqlPersistenceError("login-attempt-unavailable");
+    const [rows] = await this.pool.execute<AccountLoginAttemptRow[]>("SELECT * FROM account_device_login_attempts WHERE attempt_id=?", [input.attemptId]);
     const row = rows[0];
-    if (!row) throw new MySqlPersistenceError("join-session-unavailable");
+    if (!row) throw new MySqlPersistenceError("login-attempt-unavailable");
     return { returnUri: row.return_uri, clientState: row.client_state };
   }
 
-  async redeemOwnerLoginSession(input: {
-    readonly exchangeDigest: string; readonly codeChallenge: string; readonly audience: string; readonly credentialExpiresAt: string; readonly now?: string;
+  async redeemAccountLoginAttempt(input: {
+    readonly proofDigest: string;
+    readonly codeChallenge: string;
+    readonly audience: string;
+    readonly credentialExpiresAt: string;
+    readonly now?: string;
   }): Promise<{ readonly token: string; readonly humanPrincipalId: string; readonly principalId: string; readonly accountId: string; readonly displayName: string; readonly expiresAt: string }> {
     const now = input.now ?? new Date().toISOString();
     return this.#transaction(async (connection) => {
-      const [rows] = await connection.execute<OwnerLoginRedemptionRow[]>("SELECT * FROM join_sessions WHERE exchange_digest=? AND purpose='owner' FOR UPDATE", [input.exchangeDigest]);
+      const [rows] = await connection.execute<AccountLoginAttemptRow[]>("SELECT * FROM account_device_login_attempts WHERE proof_digest=? FOR UPDATE", [input.proofDigest]);
       const row = rows[0];
-      if (!row || row.consumed_at || !row.authenticated_at || row.code_challenge !== input.codeChallenge || Date.parse(toIso(row.expires_at)) <= Date.parse(now)) throw new MySqlPersistenceError("login-exchange-denied");
-      const [existing] = await connection.execute<ExternalIdentityRow[]>("SELECT principal_id FROM external_identities WHERE issuer=? AND subject_digest=? FOR UPDATE", [row.identity_issuer, row.subject_digest]);
-      let humanPrincipalId = existing[0]?.principal_id;
+      if (!row || row.consumed_at || !row.authenticated_at || !row.auth_user_id || !row.verified_email || !row.display_name || row.code_challenge !== input.codeChallenge || Date.parse(toIso(row.expires_at)) <= Date.parse(now)) {
+        throw new MySqlPersistenceError("login-exchange-denied");
+      }
+      const identityEmail = row.verified_email.trim().toLowerCase();
+      const [identities] = await connection.execute<AccountAuthIdentityRow[]>("SELECT * FROM account_auth_identities WHERE auth_user_id=? FOR UPDATE", [row.auth_user_id]);
+      let humanPrincipalId = identities[0]?.principal_id;
       if (!humanPrincipalId) {
         humanPrincipalId = `human:${randomUUID()}`;
-        await connection.execute("INSERT INTO principals(principal_id, kind, display_name, created_at) VALUES (?,'human',?,?)", [humanPrincipalId, row.display_name.slice(0, 120), sqlDate(now)]);
-        await connection.execute("INSERT INTO external_identities(issuer, subject_digest, principal_id, created_at) VALUES (?,?,?,?)", [row.identity_issuer, row.subject_digest, humanPrincipalId, sqlDate(now)]);
+        await connection.execute("INSERT INTO principals(principal_id,kind,display_name,created_at) VALUES (?,'human',?,?)", [humanPrincipalId, row.display_name, sqlDate(now)]);
+        await connection.execute(String.raw`
+          INSERT INTO account_auth_identities(auth_user_id,principal_id,verified_email,verified_email_digest,created_at,updated_at)
+          VALUES (?,?,?,?,?,?)
+        `, [row.auth_user_id, humanPrincipalId, identityEmail, hashCredential(identityEmail), sqlDate(now), sqlDate(now)]);
+      } else if (identities[0]?.verified_email !== identityEmail) {
+        throw new MySqlPersistenceError("authentication-identity-conflict");
       }
-      const identityEmail = row.identity_email?.trim().toLowerCase();
-      if (!identityEmail) throw new MySqlPersistenceError("login-identity-email-required");
       const [memberships] = await connection.execute<AccountMembershipIdentityRow[]>(
-        "SELECT account_id, role, email FROM account_memberships WHERE user_id=? ORDER BY joined_at, account_id LIMIT 2 FOR UPDATE",
+        "SELECT account_id,role,email FROM account_memberships WHERE user_id=? ORDER BY joined_at,account_id LIMIT 2 FOR UPDATE",
         [humanPrincipalId],
       );
-      if (memberships.length > 1 || (memberships[0] && memberships[0].role !== "owner")) throw new MySqlPersistenceError("human-friendship-migration-review-required");
+      if (memberships.length > 1 || (memberships[0] && memberships[0].role !== "owner")) throw new MySqlPersistenceError("authentication-identity-conflict");
       let accountId = memberships[0]?.account_id;
-      let role: "owner" | undefined = memberships[0]?.role === "owner" ? "owner" : undefined;
-      if (memberships[0] && memberships[0].email.trim().toLowerCase() !== identityEmail) {
-        await connection.execute(
-          "UPDATE account_memberships SET email=?,version=version+1,updated_at=? WHERE account_id=? AND user_id=?",
-          [identityEmail, sqlDate(now), memberships[0].account_id, humanPrincipalId],
-        );
-      }
-      if (!accountId || !role) {
+      if (!accountId) {
         accountId = `account:${randomUUID()}`;
-        const membershipId = `membership:${randomUUID()}`;
         await connection.execute("INSERT INTO accounts(account_id,name,version,created_at,updated_at) VALUES (?,?,1,?,?)", [accountId, `${row.display_name.slice(0, 100)} Account`, sqlDate(now), sqlDate(now)]);
         await connection.execute(String.raw`
           INSERT INTO account_memberships(membership_id,account_id,user_id,email,role,version,joined_at,updated_at)
           VALUES (?,?,?,?,'owner',1,?,?)
-        `, [membershipId, accountId, humanPrincipalId, identityEmail, sqlDate(now), sqlDate(now)]);
-        role = "owner";
+        `, [`membership:${randomUUID()}`, accountId, humanPrincipalId, identityEmail, sqlDate(now), sqlDate(now)]);
       }
       const principalId = `device:${randomUUID()}`;
-      await connection.execute("INSERT INTO principals(principal_id, kind, owner_principal_id, display_name, created_at) VALUES (?,'device',?,?,?)", [principalId, humanPrincipalId, row.device_name.slice(0, 120), sqlDate(now)]);
-      const [instances] = await connection.query<IdentifierRow[]>("SELECT instance_id FROM fabric_instances LIMIT 1"); const instanceId = instances[0]?.instance_id;
+      await connection.execute("INSERT INTO principals(principal_id,kind,owner_principal_id,display_name,created_at) VALUES (?,'device',?,?,?)", [principalId, humanPrincipalId, row.device_name, sqlDate(now)]);
+      const [instances] = await connection.query<IdentifierRow[]>("SELECT instance_id FROM fabric_instances LIMIT 1");
+      const instanceId = instances[0]?.instance_id;
       if (!instanceId) throw new MySqlPersistenceError("instance-required");
       const issued = await this.#issueCredential(connection, { principalId, instanceId, scopes: ["account:access"], audience: input.audience, expiresAt: input.credentialExpiresAt, now });
+      await connection.execute("INSERT INTO account_sessions(session_id,credential_id,account_id,user_id,created_at,expires_at,last_seen_at) VALUES (?,?,?,?,?,?,?)", [`session:${randomUUID()}`, issued.record.credentialId, accountId, humanPrincipalId, sqlDate(now), sqlDate(input.credentialExpiresAt), sqlDate(now)]);
+      await connection.execute("UPDATE account_device_login_attempts SET consumed_at=? WHERE attempt_id=?", [sqlDate(now), row.attempt_id]);
       await connection.execute(String.raw`
-        INSERT INTO account_sessions(session_id,credential_id,account_id,user_id,created_at,expires_at,last_seen_at)
-        VALUES (?,?,?,?,?,?,?)
-      `, [`session:${randomUUID()}`, issued.record.credentialId, accountId, humanPrincipalId, sqlDate(now), sqlDate(input.credentialExpiresAt), sqlDate(now)]);
-      await connection.execute("UPDATE join_sessions SET consumed_at=? WHERE join_session_id=?", [sqlDate(now), row.join_session_id]);
-      await connection.execute(String.raw`
-        UPDATE human_friend_invitations
-        SET recipient_user_id=?
+        UPDATE human_friend_invitations SET recipient_user_id=?
         WHERE recipient_user_id IS NULL AND recipient_email_digest=? AND recipient_email=? AND status='pending' AND expires_at>?
       `, [humanPrincipalId, hashCredential(identityEmail), identityEmail, sqlDate(now)]);
-      await this.#audit(connection, principalId, "account.login", "account", accountId, "success", { role }, now);
+      await this.#audit(connection, principalId, "account.login", "account", accountId, "success", { method: row.method }, now);
       return { token: issued.token, humanPrincipalId, principalId, accountId, displayName: row.display_name, expiresAt: input.credentialExpiresAt };
     });
   }
 
-  async redeemAccountMemberLoginSession(input: {
-    readonly exchangeDigest: string; readonly codeChallenge: string; readonly audience: string; readonly credentialExpiresAt: string; readonly now?: string;
-  }): Promise<{ readonly token: string; readonly humanPrincipalId: string; readonly principalId: string; readonly accountId: string; readonly role: "owner" | "admin" | "member"; readonly displayName: string; readonly expiresAt: string }> {
-    const now = input.now ?? new Date().toISOString();
-    return this.#transaction(async (connection) => {
-      const [rows] = await connection.execute<AccountMemberJoinRedemptionRow[]>(String.raw`
-        SELECT s.*,i.account_id,i.invited_email,i.role,i.status AS invitation_status,
-               i.expires_at AS invitation_expires_at,i.accepted_at AS invitation_accepted_at,i.revoked_at AS invitation_revoked_at
-        FROM join_sessions s
-        JOIN account_member_invitations i ON i.invitation_id=s.account_invitation_id
-        WHERE s.exchange_digest=? AND s.purpose='account_invite' FOR UPDATE
-      `, [input.exchangeDigest]);
-      const row = rows[0];
-      const email = row?.identity_email?.trim().toLowerCase();
-      if (!row || row.consumed_at || !row.authenticated_at || row.code_challenge !== input.codeChallenge
-        || row.invitation_status !== "pending" || row.invitation_accepted_at || row.invitation_revoked_at
-        || Date.parse(toIso(row.expires_at)) <= Date.parse(now) || Date.parse(toIso(row.invitation_expires_at)) <= Date.parse(now)
-        || !email || email !== row.invited_email.trim().toLowerCase()) {
-        throw new MySqlPersistenceError("account-join-exchange-denied");
-      }
-      const [existing] = await connection.execute<ExternalIdentityRow[]>("SELECT principal_id FROM external_identities WHERE issuer=? AND subject_digest=? FOR UPDATE", [row.identity_issuer, row.subject_digest]);
-      let humanPrincipalId = existing[0]?.principal_id;
-      if (!humanPrincipalId) {
-        humanPrincipalId = `human:${randomUUID()}`;
-        await connection.execute("INSERT INTO principals(principal_id,kind,display_name,created_at) VALUES (?,'human',?,?)", [humanPrincipalId, row.display_name.slice(0, 120), sqlDate(now)]);
-        await connection.execute("INSERT INTO external_identities(issuer,subject_digest,principal_id,created_at) VALUES (?,?,?,?)", [row.identity_issuer, row.subject_digest, humanPrincipalId, sqlDate(now)]);
-      }
-      const [memberships] = await connection.execute<AccountMembershipIdentityRow[]>("SELECT account_id,role,email FROM account_memberships WHERE user_id=? FOR UPDATE", [humanPrincipalId]);
-      if (memberships.length !== 0) throw new MySqlPersistenceError("account-membership-already-exists");
-      const membershipId = `membership:${randomUUID()}`;
-      await connection.execute(String.raw`
-        INSERT INTO account_memberships(membership_id,account_id,user_id,email,role,version,joined_at,updated_at)
-        VALUES (?,?,?,?,?,1,?,?)
-      `, [membershipId, row.account_id, humanPrincipalId, email, row.role, sqlDate(now), sqlDate(now)]);
-      const principalId = `device:${randomUUID()}`;
-      await connection.execute("INSERT INTO principals(principal_id,kind,owner_principal_id,display_name,created_at) VALUES (?,'device',?,?,?)", [principalId, humanPrincipalId, row.device_name.slice(0, 120), sqlDate(now)]);
-      const [instances] = await connection.query<IdentifierRow[]>("SELECT instance_id FROM fabric_instances LIMIT 1");
-      const instanceId = instances[0]?.instance_id;
-      if (!instanceId) throw new MySqlPersistenceError("instance-required");
-      const expiresAt = Date.parse(input.credentialExpiresAt) < Date.parse(toIso(row.invitation_expires_at)) ? input.credentialExpiresAt : toIso(row.invitation_expires_at);
-      const issued = await this.#issueCredential(connection, { principalId, instanceId, scopes: ["account:access"], audience: input.audience, expiresAt, now });
-      await connection.execute("INSERT INTO account_sessions(session_id,credential_id,account_id,user_id,created_at,expires_at,last_seen_at) VALUES (?,?,?,?,?,?,?)", [`session:${randomUUID()}`, issued.record.credentialId, row.account_id, humanPrincipalId, sqlDate(now), sqlDate(expiresAt), sqlDate(now)]);
-      await connection.execute("UPDATE account_member_invitations SET status='accepted',accepted_at=?,version=version+1 WHERE invitation_id=? AND status='pending'", [sqlDate(now), row.account_invitation_id]);
-      await connection.execute("UPDATE join_sessions SET consumed_at=? WHERE join_session_id=?", [sqlDate(now), row.join_session_id]);
-      await this.#audit(connection, principalId, "account.invitation.accept", "account", row.account_id, "success", { role: row.role }, now);
-      return { token: issued.token, humanPrincipalId, principalId, accountId: row.account_id, role: row.role, displayName: row.display_name, expiresAt };
-    });
-  }
 
   async getAccountSessionByCredential(credentialId: string, now = new Date().toISOString()): Promise<AccountSession> {
     const [rows] = await this.pool.execute<AccountSessionRow[]>(String.raw`
@@ -2036,10 +1992,6 @@ interface HumanFriendshipMigrationAuditRow extends RowDataPacket {
   legacy_shared_agents: number | string;
 }
 interface IdentifierRow extends RowDataPacket { instance_id: string }
-interface AccountInvitationAvailabilityRow extends RowDataPacket { invitation_id: string; status: string; expires_at: string | Date; accepted_at: string | Date | null; revoked_at: string | Date | null }
-interface JoinStateRow extends RowDataPacket { join_session_id: string; nonce_digest: string; expires_at: string | Date; authenticated_at: string | Date | null; consumed_at: string | Date | null; return_uri: string; client_state: string }
-interface JoinReturnRow extends RowDataPacket { return_uri: string; client_state: string }
-interface ExternalIdentityRow extends RowDataPacket { principal_id: string }
 interface AccountMembershipIdentityRow extends RowDataPacket { account_id: string; role: "owner" | "admin" | "member"; email: string }
 interface AccountSessionRow extends RowDataPacket {
   session_id: string; credential_id: string; account_id: string; user_id: string; display_name: string; email: string;
@@ -2150,18 +2102,16 @@ interface AccountSelfTestRow extends RowDataPacket {
   requester_principal_id: string; requester_credential_id: string; created_at: string | Date; expires_at: string | Date;
   revoked_at: string | Date | null;
 }
+interface AccountLoginAttemptRow extends RowDataPacket {
+  attempt_id: string; method: "google" | "email"; return_uri: string; client_state: string; code_challenge: string; device_name: string;
+  email_digest: string | null;
+  auth_user_id: string | null; verified_email: string | null; display_name: string | null; proof_digest: string | null;
+  expires_at: string | Date; authenticated_at: string | Date | null; consumed_at: string | Date | null; created_at: string | Date;
+}
+interface AccountAuthIdentityRow extends RowDataPacket {
+  auth_user_id: string; principal_id: string; verified_email: string; verified_email_digest: string; created_at: string | Date; updated_at: string | Date;
+}
 interface AccountSkillValidationRow extends RowDataPacket { skill_id: string; origin: "account" | "runtime" | "agent"; runtime_id: string | null }
-interface OwnerLoginRedemptionRow extends RowDataPacket {
-  join_session_id: string; code_challenge: string; device_name: string; expires_at: string | Date;
-  identity_issuer: string; subject_digest: string; display_name: string; identity_email: string | null; authenticated_at: string | Date | null; consumed_at: string | Date | null;
-}
-interface AccountMemberJoinRedemptionRow extends RowDataPacket {
-  join_session_id: string; account_invitation_id: string; code_challenge: string; device_name: string; expires_at: string | Date;
-  identity_issuer: string; subject_digest: string; display_name: string; identity_email: string | null;
-  authenticated_at: string | Date | null; consumed_at: string | Date | null;
-  account_id: string; invited_email: string; role: "owner" | "admin" | "member"; invitation_status: string;
-  invitation_expires_at: string | Date; invitation_accepted_at: string | Date | null; invitation_revoked_at: string | Date | null;
-}
 interface CredentialRow extends RowDataPacket {
   credential_id: string; principal_id: string; instance_id: string; scopes: string | string[]; audience: string;
   expires_at: string | Date; kind: string; owner_principal_id: string | null;

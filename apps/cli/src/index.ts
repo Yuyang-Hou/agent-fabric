@@ -186,9 +186,9 @@ async function browserAuthentication(input: { readonly client: AgentFabricClient
   const state = randomBytes(32).toString("base64url");
   const callback = await listenForLoginCallback(state, numberFlag(input.args, "--timeout-seconds", 300));
   try {
-    const started = await input.client.startLogin({ codeChallenge, returnUri: callback.returnUri, clientState: state, deviceName: optionalFlag(input.args, "--device-name") ?? defaultDeviceName() });
-    if (!input.args.includes("--no-browser")) await (input.runtime.openBrowser ?? openBrowser)(started.authorizationUrl);
-    return input.client.exchangeLogin((await callback.result).code, verifier);
+    const authorizationUrl = input.client.googleLoginUrl({ codeChallenge, returnUri: callback.returnUri, clientState: state, deviceName: optionalFlag(input.args, "--device-name") ?? defaultDeviceName() });
+    if (!input.args.includes("--no-browser")) await (input.runtime.openBrowser ?? openBrowser)(authorizationUrl);
+    return input.client.exchangeDeviceLogin((await callback.result).code, verifier);
   } finally { await callback.close(); }
 }
 

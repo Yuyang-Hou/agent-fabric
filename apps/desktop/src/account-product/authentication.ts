@@ -9,8 +9,10 @@ export interface AccountProductCredentialVaultPort {
   clearSession(): Promise<void>;
 }
 
-export interface AccountProductGoogleLoginPort {
+export interface AccountProductLoginPort {
   login<T>(activate: (login: { readonly token: string }) => Promise<T>): Promise<T>;
+  requestEmailCode?(email: string): Promise<{ readonly expiresAt: string; readonly resendAfterSeconds: number }>;
+  loginEmail?<T>(email: string, otp: string, activate: (login: { readonly token: string }) => Promise<T>): Promise<T>;
 }
 
 export interface AccountProductSessionActivation {
@@ -23,7 +25,7 @@ export class DesktopAccountProductAuthentication implements AccountProductAuthen
   constructor(readonly options: {
     readonly serverBaseUrl: string;
     readonly credentialVault: AccountProductCredentialVaultPort;
-    readonly googleLogin: AccountProductGoogleLoginPort;
+    readonly googleLogin: AccountProductLoginPort;
     readonly fetchImpl?: typeof fetch;
     readonly subscribeInvalidations?: (
       serverBaseUrl: string,
@@ -36,8 +38,21 @@ export class DesktopAccountProductAuthentication implements AccountProductAuthen
   }) {}
 
   async login<T>(activate: (session: AccountProductAuthenticatedSession) => Promise<T>): Promise<T> {
-    return this.options.googleLogin.login(async (login) => {
-      try { await this.options.credentialVault.set("app-session", login.token); }
+    return this.options.googleLogin.login((login) => this.#activate(login, activate));
+  }
+
+  requestEmailCode(email: string): Promise<{ readonly expiresAt: string; readonly resendAfterSeconds: number }> {
+    if (!this.options.googleLogin.requestEmailCode) return Promise.reject(new AccountLoginActivationError("login-cloud-incompatible"));
+    return this.options.googleLogin.requestEmailCode(email);
+  }
+
+  async loginEmail<T>(email: string, otp: string, activate: (session: AccountProductAuthenticatedSession) => Promise<T>): Promise<T> {
+    if (!this.options.googleLogin.loginEmail) throw new AccountLoginActivationError("login-cloud-incompatible");
+    return this.options.googleLogin.loginEmail(email, otp, (login) => this.#activate(login, activate));
+  }
+
+  async #activate<T>(login: { readonly token: string }, activate: (session: AccountProductAuthenticatedSession) => Promise<T>): Promise<T> {
+    try { await this.options.credentialVault.set("app-session", login.token); }
       catch {
         await this.options.credentialVault.clearSession().catch(() => undefined);
         throw new AccountLoginActivationError("login-secure-storage-failed");
@@ -53,7 +68,6 @@ export class DesktopAccountProductAuthentication implements AccountProductAuthen
         await this.options.credentialVault.clearSession().catch(() => undefined);
         throw new AccountLoginActivationError("login-bootstrap-failed");
       }
-    });
   }
 
   async restore(): Promise<AccountProductAuthenticatedSession | undefined> {

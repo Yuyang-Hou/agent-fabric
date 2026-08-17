@@ -4,6 +4,8 @@
 
 新的产品目标保留 Account 对 Agent、Runtime、Skill 和本机 Edge 的资源隔离，但 Account 变为一个 Human 的个人资源容器。人与人通过独立、双向的 Human Friendship 建联；Friendship 不产生资源所有权或管理权。每个 Agent 的 Owner 只选择“仅自己”或“好友可访问”，好友通过 Desktop 的 Agent 目录读取安全摘要，并通过现有 MCP/A2A 问答。
 
+当前认证只提供自研 Google OIDC 编排。产品尚未开放使用，没有需要迁移或兼容的历史用户、认证会话和客户端，因此本次认证变化可以直接切换到统一的新模型，不引入双读、旧接口桥接或账号回填逻辑。
+
 历史 `minimal-agent-friend-messaging` 证明过邀请、撤权、Presence、A2A 和 Runtime 隔离原语，但其关系是单 Personal Agent pair、依赖邀请码消费且没有收件箱。该模型只作测试与安全经验，不作为数据模型或 API 兼容目标。
 
 ## Goals / Non-Goals
@@ -11,7 +13,8 @@
 **Goals:**
 
 - 每个 Human 始终恢复或创建自己的单一个人 Account，不因好友邀请进入他人 Account。
-- 提供由受邀 Google 身份可见的收件箱式邀请、显式接受/拒绝、双向好友和删除撤权。
+- 提供 Google OIDC 与普通邮箱一次性验证码两种登录方式，并让同一已验证邮箱稳定映射到同一个 Human 和个人 Account。
+- 提供由受邀已验证身份可见的收件箱式邀请、显式接受/拒绝、双向好友和删除撤权。
 - 让 Owner 按 Agent 选择是否对全部有效好友开放，默认私有且迁移拒绝扩权。
 - 让好友在 Desktop Agent 管理目录看到开放 Agent 的安全只读摘要，同时禁止一切管理、Runtime、秘密和活动访问。
 - 让现有四工具 MCP 和标准 A2A 在跨个人 Account 场景中使用同一好友授权真源，并在关系或开关变化后即时拒绝。
@@ -25,6 +28,8 @@
 - 不让好友查看或管理 Runtime、Skills、Instructions、模型私有配置、环境变量、凭据、Activity 明细或本地文件。
 - 不恢复历史 `list_agent_friends/send_message/get_message` MCP 工具，也不引入 A2A 私有顶层字段。
 - 不保存、恢复、同步或跨设备共享 Builder 草稿，不提供 Cloud Builder 推理或草稿版本冲突兼容层。
+- 不提供密码、Magic Link、短信验证码、Passkey 或 MFA；邮箱验证码是便捷的单因素认证，不声明满足 AAL2。
+- 不兼容或迁移旧认证用户、旧认证会话、旧登录交换接口与旧客户端。
 
 ## Decisions
 
@@ -44,7 +49,7 @@
 
 新增 `human_friend_invitations`，包含 inviter、受邀邮箱摘要、可选已解析 invitee user、`pending/accepted/rejected/revoked/expired`、版本和时间。创建成功只返回安全记录；不把原始 Token送入 Renderer、剪贴板或普通日志。
 
-登录后，Server 依据受信 Google Identity 映射的 Human 与已验证邮箱匹配收到的邀请。未注册收件人在首次登录并创建自己的 Account 后即可看到邀请。接受事务锁定邀请与规范化 pair，创建或恢复 Friendship 并把邀请置为 accepted；拒绝、撤销和过期不创建关系。接受后关系以 Human ID 为稳定身份，不因邮箱改变而漂移。
+登录后，Server 依据统一认证用户映射的 Human 与已验证邮箱匹配收到的邀请。未注册收件人在首次通过任一支持方式登录并创建自己的 Account 后即可看到邀请。接受事务锁定邀请与规范化 pair，创建或恢复 Friendship 并把邀请置为 accepted；拒绝、撤销和过期不创建关系。接受后关系以 Human ID 为稳定身份，不因邮箱改变而漂移。
 
 API 分为 `/v1/friend-invitations/incoming`、`/outgoing`、创建、接受、拒绝、撤销，以及 `/v1/friends` 列表/删除。所有写操作只允许 Desktop Human session；MCP 和 A2A 不暴露好友管理。
 
@@ -121,6 +126,32 @@ Runtime Adapter 接收结构化的 Builder 上下文并返回经本地 schema �
 
 `AgentDraft` Domain/Client/IPC 命令、`/v1/agent-drafts*` 路由、Builder turn orchestration 和草稿 repository 从产品运行时代码移除。数据库迁移先停止草稿表读写并保留现有表/数据作为回滚证据；不得在本次变化中不可恢复删除历史数据。后续删除必须经过备份、存量计数、回滚窗口和独立迁移批准。
 
+### 14. Better Auth 统一承载 Google 与邮箱验证码认证
+
+Server 使用 Better Auth 的 Google provider 与 Email OTP plugin 作为唯一认证入口，不再分别维护自研 Google OIDC 与邮箱验证码状态机。Better Auth 管理认证用户、provider account、验证码和短期认证会话；Agent Fabric 只把稳定的 Better Auth `user.id` 映射到一个 Human Principal，并继续自行签发有范围的设备凭据。
+
+同一已验证邮箱通过 Google 与邮箱验证码登录时，Better Auth 必须关联为同一认证用户；只允许受信 provider 的已验证邮箱参与隐式关联，禁止不同邮箱关联并在冲突时拒绝登录，不手工合并两个 Human。进入实现前必须完成 Express 5、MySQL adapter、Google provider、Email OTP plugin 与服务端会话交换的兼容性 spike；若开源边界无法满足安全模型，应重新评估开源方案，而不是补写一套自研认证协议。
+
+Better Auth、Nodemailer 与 rate-limiter-flexible 必须固定经审计的精确版本，登记到 `config/third-party-sources.json`，进入 source policy、许可证、漏洞扫描和 SBOM。禁用非必要 telemetry，认证库会话不得直接成为产品 API 的长期 bearer credential。
+
+### 15. 邮箱验证码采用短时、单次、不可枚举的安全基线
+
+邮箱登录固定为 6 位随机数字验证码、5 分钟有效期、最多 3 次校验尝试和 60 秒重发倒计时。验证码与验证码标识使用 Better Auth 支持的哈希存储；成功、过期、尝试耗尽或被新验证码替换后立即失效，并以原子消费防止并发重放。
+
+请求验证码、校验验证码和重发都返回不暴露邮箱是否已注册的统一响应。外围使用 rate-limiter-flexible 的 MySQL store，至少同时限制来源 IP 和经服务端密钥 HMAC 后的规范化邮箱；原始邮箱不得作为限流 key、普通日志或审计详情。验证码值不得进入日志、错误、遥测、Renderer 持久化或诊断快照。
+
+### 16. SMTP 发送与能力发现由 Server 控制
+
+邮件通过 Nodemailer 的标准 SMTP transport 发送，生产配置强制 TLS、证书校验和服务端凭据隔离。发信失败、超时和限流必须形成可观测但不含地址/验证码的审计结果；客户端只收到统一、可重试且不枚举账号的状态。
+
+Server 只有在 SMTP 与 Email OTP 配置完整且健康时才声明 `email-otp-login` 能力；Desktop 依据能力展示邮箱入口，Google 登录不依赖 SMTP。生产环境不得回显验证码或降级到开发邮件通道。
+
+### 17. Desktop 只交换一次性认证证明
+
+Desktop 登录首屏提供邮箱输入/继续和 Google 登录。邮箱提交后进入验证码步骤，支持倒计时重发、返回修改邮箱、明确 busy/error 状态；Google 继续使用系统浏览器。Main 负责网络请求和本机回调，Renderer 只持有当前输入所需的瞬时状态。
+
+两种登录在 Server 端都收敛为与本次本机 PKCE/nonce 绑定的一次性登录证明，再兑换 Agent Fabric 设备凭据并立即消费。长期设备凭据继续只保存在 Main/Keychain，不进入 Renderer、URL、普通日志或 Better Auth 浏览器 cookie。由于没有历史用户，旧自研 Google 登录 session、join session、exchange endpoint 及客户端调用直接移除，不保留兼容分支。
+
 ## Risks / Trade-offs
 
 - [跨 Account 查询扩大枚举面] → 只从已验证 Human 关系出发查询，未授权与不存在统一返回，禁止公共名称/邮箱搜索。
@@ -132,6 +163,11 @@ Runtime Adapter 接收结构化的 Builder 上下文并返回经本地 schema �
 - [好友可调用意味着远端文本进入本机 Runtime] → 继续标记外部输入为不可信，Runtime 默认只读/无网络/无副作用，私有 Session 按目标 Agent 与来源 Human 隔离。
 - [本地 Builder 状态在关闭后丢失] → UI 明确其一次性属性；创建失败只在当前页面生命周期内保留状态，不承诺恢复。
 - [移除服务端草稿代码影响旧客户端] → `/v1/agent-drafts*` 不保留产品兼容入口；发布切换前确认当前受支持 Desktop 已同步更新，旧表只读保留以支持二进制回滚。
+- [邮箱验证码可被撞库、轰炸或用于枚举] → 短有效期、三次尝试、单次消费、IP 与邮箱双限流、统一响应、哈希存储和脱敏审计。
+- [邮箱收取能力低于抗钓鱼认证器] → 明确其为单因素便捷登录，不声明 AAL2；高风险操作仍依赖既有本机设备凭据与服务端授权，后续另立 Passkey/MFA change。
+- [SMTP 延迟或故障导致登录不可用] → 独立健康检查、超时、重试边界和能力发现；Google 登录保持独立可用。
+- [第三方认证包扩大供应链面] → 精确锁版本、登记来源/许可证、漏洞与行为审计、SBOM 和升级门禁。
+- [邮箱重新分配或 provider 数据冲突导致错误关联] → 只接受已验证邮箱、禁止不同邮箱关联、冲突拒绝并记录脱敏安全事件。
 
 ## Migration Plan
 
@@ -143,9 +179,10 @@ Runtime Adapter 接收结构化的 Builder 上下文并返回经本地 schema �
 6. 将 Builder 切为 Desktop/Edge 本地会话，随后移除 Client/IPC/Domain 和 Server 的草稿运行时入口；旧表停止读写但不删除。
 7. 切换 `CURRENT.md`、主 specs 和 default-product Gate，禁用旧 member mutation 与 Agent draft 路由。
 8. 从当前 `main` 构建、签名、公证、Staple 并发布一个明确标记为 Pre-release 的 beta 自测候选，安装到测试设备。
-9. 使用该发行候选完成两 Google 账号/两隔离设备真实验收、撤权检查和视觉走查；验收完成前最终发行门禁保持 pending。
+9. 使用该发行候选完成 Google 与邮箱验证码登录、两 Human/两隔离设备真实验收、撤权检查和视觉走查；验收完成前最终发行门禁保持 pending。
 10. 至少保留一个版本的旧表只读备份；确认无回滚需求后另立清理任务。
+11. 认证实现直接建立 Better Auth 新表与 Human 映射，切换 Server/Desktop 登录入口并删除旧自研 Google 登录路径；不迁移历史认证数据，不提供双读或旧客户端兼容。
 
 ## Open Questions
 
-无阻塞问题。P0 固定为 Human 双向好友、按邮箱邀请收件箱、每 Agent 全好友开关、Desktop 好友 Agent 安全摘要和现有四工具 MCP；指定好友与通知邮件延后。
+无阻塞问题。P0 固定为 Human 双向好友、按邮箱邀请收件箱、每 Agent 全好友开关、Desktop 好友 Agent 安全摘要和现有四工具 MCP；认证固定为 Better Auth 统一 Google OIDC 与 6 位邮箱验证码、Nodemailer SMTP、rate-limiter-flexible 双维度限流，并按无历史用户直接切换。指定好友、邀请通知邮件、密码、Magic Link、Passkey 与 MFA 延后。

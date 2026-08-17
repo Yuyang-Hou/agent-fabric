@@ -7,16 +7,30 @@ export interface ServerConfig {
   readonly databaseUrl: string;
   readonly databaseDriver: "mysql";
   readonly tunnelTimeoutMs: number;
-  readonly googleOidc?: GoogleOidcConfig;
+  readonly authentication?: AuthenticationConfig;
   readonly component: ComponentVersion;
 }
 
-export interface GoogleOidcConfig {
-  readonly clientId: string;
-  readonly clientSecret: string;
-  readonly redirectUri: string;
-  readonly selfServiceAllowedDomains: readonly string[];
-  readonly selfServiceLoginLimit: number;
+export interface AuthenticationConfig {
+  readonly secret: string;
+  readonly google?: {
+    readonly clientId: string;
+    readonly clientSecret: string;
+    readonly selfServiceAllowedDomains: readonly string[];
+    readonly selfServiceLoginLimit: number;
+  };
+  readonly emailOtp?: {
+    readonly smtp: {
+      readonly host: string;
+      readonly port: number;
+      readonly secure: boolean;
+      readonly username?: string;
+      readonly password?: string;
+      readonly from: string;
+    };
+    readonly requestLimitPerHour: number;
+    readonly verifyLimitPerTenMinutes: number;
+  };
 }
 
 export function loadServerConfig(environment: NodeJS.ProcessEnv): ServerConfig {
@@ -32,7 +46,7 @@ export function loadServerConfig(environment: NodeJS.ProcessEnv): ServerConfig {
   const expectedProtocols = ["mysql:"];
   if (!expectedProtocols.includes(databaseProtocol)) throw new ServerConfigError("database-driver-url-mismatch");
   const normalizedPublicBaseUrl = parsedUrl.toString().replace(/\/$/u, "");
-  const googleOidc = optionalGoogleOidc(environment, normalizedPublicBaseUrl);
+  const authentication = optionalAuthentication(environment);
   return Object.freeze({
     host,
     port,
@@ -40,23 +54,54 @@ export function loadServerConfig(environment: NodeJS.ProcessEnv): ServerConfig {
     databaseUrl,
     databaseDriver,
     tunnelTimeoutMs: integer(environment.AGENT_FABRIC_TUNNEL_TIMEOUT_MS ?? "30000", "AGENT_FABRIC_TUNNEL_TIMEOUT_MS"),
-    ...(googleOidc ? { googleOidc } : {}),
+    ...(authentication ? { authentication } : {}),
     component: componentVersionSchema.parse({
       product: "agent-fabric", component: "server", version: "0.1.0", protocolMajor: 1,
-      a2aVersion: "1.0.1", runtimeAdapterVersion: "1", features: ["a2a-rest", "account-runtime-websocket", "account-agents", "human-friendships", databaseDriver, ...(googleOidc ? ["google-account-login", "friend-invitations"] : [])],
+      a2aVersion: "1.0.1", runtimeAdapterVersion: "1", features: [
+        "a2a-rest", "account-runtime-websocket", "account-agents", "human-friendships", databaseDriver,
+        ...(authentication ? ["friend-invitations"] : []),
+        ...(authentication?.google ? ["google-account-login"] : []),
+        ...(authentication?.emailOtp ? ["email-otp-login"] : []),
+      ],
     }),
   });
 }
 
-function optionalGoogleOidc(environment: NodeJS.ProcessEnv, publicBaseUrl: string): GoogleOidcConfig | undefined {
-  const values = [environment.AGENT_FABRIC_GOOGLE_CLIENT_ID?.trim(), environment.AGENT_FABRIC_GOOGLE_CLIENT_SECRET?.trim(), environment.AGENT_FABRIC_GOOGLE_REDIRECT_URI?.trim()];
-  if (values.every((value) => !value)) return undefined;
-  if (values.some((value) => !value)) throw new ServerConfigError("google-oidc-configuration-incomplete");
-  const [clientId, clientSecret, redirectUri] = values as [string, string, string];
-  if (redirectUri !== `${publicBaseUrl}/v1/auth/google/callback` || new URL(redirectUri).protocol !== "https:") throw new ServerConfigError("google-oidc-redirect-invalid");
+function optionalAuthentication(environment: NodeJS.ProcessEnv): AuthenticationConfig | undefined {
+  const googleValues = [environment.AGENT_FABRIC_GOOGLE_CLIENT_ID?.trim(), environment.AGENT_FABRIC_GOOGLE_CLIENT_SECRET?.trim()];
+  const smtpValues = [environment.AGENT_FABRIC_SMTP_HOST?.trim(), environment.AGENT_FABRIC_SMTP_PORT?.trim(), environment.AGENT_FABRIC_SMTP_FROM?.trim()];
+  const hasGoogle = googleValues.some(Boolean);
+  const hasEmailOtp = smtpValues.some(Boolean) || Boolean(environment.AGENT_FABRIC_SMTP_USERNAME?.trim() || environment.AGENT_FABRIC_SMTP_PASSWORD?.trim());
+  if (!hasGoogle && !hasEmailOtp) return undefined;
+  const secret = environment.AGENT_FABRIC_AUTH_SECRET?.trim();
+  if (!secret || secret.length < 32) throw new ServerConfigError("authentication-secret-invalid");
+  if (hasGoogle && googleValues.some((value) => !value)) throw new ServerConfigError("google-auth-configuration-incomplete");
+  if (hasEmailOtp && smtpValues.some((value) => !value)) throw new ServerConfigError("email-otp-configuration-incomplete");
+  const smtpUsername = environment.AGENT_FABRIC_SMTP_USERNAME?.trim();
+  const smtpPassword = environment.AGENT_FABRIC_SMTP_PASSWORD?.trim();
+  if (Boolean(smtpUsername) !== Boolean(smtpPassword)) throw new ServerConfigError("smtp-auth-configuration-incomplete");
   const selfServiceAllowedDomains = (environment.AGENT_FABRIC_GOOGLE_SELF_SERVICE_ALLOWED_DOMAINS ?? "").split(",").map((value) => value.trim().toLowerCase()).filter(Boolean);
   const selfServiceLoginLimit = integer(environment.AGENT_FABRIC_GOOGLE_SELF_SERVICE_LOGIN_LIMIT ?? "20", "AGENT_FABRIC_GOOGLE_SELF_SERVICE_LOGIN_LIMIT");
-  return Object.freeze({ clientId, clientSecret, redirectUri, selfServiceAllowedDomains: Object.freeze(selfServiceAllowedDomains), selfServiceLoginLimit });
+  return Object.freeze({
+    secret,
+    ...(hasGoogle ? { google: Object.freeze({
+      clientId: googleValues[0] as string,
+      clientSecret: googleValues[1] as string,
+      selfServiceAllowedDomains: Object.freeze(selfServiceAllowedDomains),
+      selfServiceLoginLimit,
+    }) } : {}),
+    ...(hasEmailOtp ? { emailOtp: Object.freeze({
+      smtp: Object.freeze({
+        host: smtpValues[0] as string,
+        port: integer(smtpValues[1] as string, "AGENT_FABRIC_SMTP_PORT"),
+        secure: boolean(environment.AGENT_FABRIC_SMTP_SECURE ?? "true", "AGENT_FABRIC_SMTP_SECURE"),
+        ...(smtpUsername && smtpPassword ? { username: smtpUsername, password: smtpPassword } : {}),
+        from: smtpValues[2] as string,
+      }),
+      requestLimitPerHour: integer(environment.AGENT_FABRIC_EMAIL_OTP_REQUEST_LIMIT_PER_HOUR ?? "6", "AGENT_FABRIC_EMAIL_OTP_REQUEST_LIMIT_PER_HOUR"),
+      verifyLimitPerTenMinutes: integer(environment.AGENT_FABRIC_EMAIL_OTP_VERIFY_LIMIT_PER_TEN_MINUTES ?? "10", "AGENT_FABRIC_EMAIL_OTP_VERIFY_LIMIT_PER_TEN_MINUTES"),
+    }) } : {}),
+  });
 }
 
 function normalizeDatabaseUrl(_driver: "mysql", value: string): string {
@@ -97,4 +142,10 @@ function integer(value: string, name: string): number {
   const parsed = Number.parseInt(value, 10);
   if (!Number.isSafeInteger(parsed) || parsed < 0 || (name !== "AGENT_FABRIC_PORT" && parsed === 0)) throw new ServerConfigError(`invalid:${name}`);
   return parsed;
+}
+
+function boolean(value: string, name: string): boolean {
+  if (value === "true") return true;
+  if (value === "false") return false;
+  throw new ServerConfigError(`invalid:${name}`);
 }

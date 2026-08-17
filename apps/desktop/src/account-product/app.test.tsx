@@ -117,12 +117,30 @@ describe("Account-scoped product Renderer", () => {
     expect(screen.getByRole("button", { name: "批量归档" })).toBeTruthy();
   });
 
-  it("keeps login a single focused Google task", () => {
+  it("offers a focused ordinary-email flow alongside Google", () => {
     render(<AccountProductApp bridge={createAccountProductFixtureBridge("login")} />);
     expect(document.querySelector(".brand-symbol [data-agent-fabric-mark]")).toBeTruthy();
     expect(screen.getByRole("button", { name: /使用 Google 登录/u })).toBeTruthy();
-    expect(screen.queryByRole("textbox")).toBeNull();
-    expect(screen.queryByText(/密码登录|验证码/u)).toBeNull();
+    expect(screen.getByRole("textbox", { name: "邮箱" }).getAttribute("autocomplete")).toBe("email");
+    expect(screen.getByRole("button", { name: "继续" })).toBeTruthy();
+    expect(screen.queryByText(/密码登录/u)).toBeNull();
+  });
+
+  it("validates the six-digit email step and keeps the code out of snapshots", async () => {
+    const commands: unknown[] = [];
+    const bridge = createAccountProductFixtureBridge("login", (command) => commands.push(command));
+    render(<AccountProductApp bridge={bridge} />);
+    fireEvent.change(screen.getByRole("textbox", { name: "邮箱" }), { target: { value: "Alice@Example.com" } });
+    fireEvent.click(screen.getByRole("button", { name: "继续" }));
+    expect(await screen.findByRole("textbox", { name: "六位验证码" })).toBeTruthy();
+    const verify = screen.getByRole("button", { name: "继续" });
+    expect(verify.hasAttribute("disabled")).toBe(true);
+    fireEvent.change(screen.getByRole("textbox", { name: "六位验证码" }), { target: { value: "12a3456" } });
+    expect(screen.getByRole("textbox", { name: "六位验证码" })).toHaveProperty("value", "123456");
+    fireEvent.click(verify);
+    expect(commands).toContainEqual({ type: "login-email-request", email: "alice@example.com" });
+    expect(commands).toContainEqual({ type: "login-email-verify", email: "alice@example.com", otp: "123456" });
+    expect(JSON.stringify(bridge.getSnapshot())).not.toContain("123456");
   });
 
   it("distinguishes an outdated service from a network failure", () => {

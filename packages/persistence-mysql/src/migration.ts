@@ -121,59 +121,9 @@ export const initialMySqlMigrationStatements = [
   ) ENGINE=InnoDB`,
 ] as const;
 
-export const onboardingMySqlMigrationStatements = [
-  `CREATE TABLE IF NOT EXISTS external_identities (
-    issuer varchar(191) NOT NULL,
-    subject_digest varchar(64) NOT NULL,
-    principal_id varchar(191) NOT NULL,
-    created_at datetime(3) NOT NULL,
-    PRIMARY KEY (issuer, subject_digest),
-    UNIQUE KEY external_identity_principal_uidx (principal_id),
-    CONSTRAINT external_identity_principal_fk FOREIGN KEY (principal_id) REFERENCES principals(principal_id)
-  ) ENGINE=InnoDB`,
-  `CREATE TABLE IF NOT EXISTS invitations (
-    invitation_id varchar(191) PRIMARY KEY,
-    owner_principal_id varchar(191) NOT NULL,
-    token_digest varchar(64) NOT NULL UNIQUE,
-    agent_id varchar(191) NOT NULL,
-    revision_id varchar(191) NOT NULL,
-    capabilities json NOT NULL,
-    expires_at datetime(3) NOT NULL,
-    max_tasks integer NOT NULL,
-    created_at datetime(3) NOT NULL,
-    revoked_at datetime(3),
-    consumed_at datetime(3),
-    INDEX invitations_owner_idx (owner_principal_id, created_at),
-    CONSTRAINT invitations_owner_fk FOREIGN KEY (owner_principal_id) REFERENCES principals(principal_id),
-    CONSTRAINT invitations_agent_fk FOREIGN KEY (agent_id) REFERENCES agents(agent_id),
-    CONSTRAINT invitations_revision_fk FOREIGN KEY (revision_id) REFERENCES public_revisions(revision_id),
-    CONSTRAINT invitations_max_tasks_chk CHECK (max_tasks > 0)
-  ) ENGINE=InnoDB`,
-  `CREATE TABLE IF NOT EXISTS join_sessions (
-    join_session_id varchar(191) PRIMARY KEY,
-    invitation_id varchar(191) NOT NULL,
-    oauth_state_digest varchar(64) NOT NULL UNIQUE,
-    nonce_digest varchar(64) NOT NULL,
-    return_uri text NOT NULL,
-    client_state varchar(256) NOT NULL,
-    code_challenge varchar(128) NOT NULL,
-    device_name text NOT NULL,
-    expires_at datetime(3) NOT NULL,
-    identity_issuer varchar(191),
-    subject_digest varchar(64),
-    display_name text,
-    exchange_digest varchar(64) UNIQUE,
-    authenticated_at datetime(3),
-    consumed_at datetime(3),
-    created_at datetime(3) NOT NULL,
-    INDEX join_sessions_invitation_idx (invitation_id, created_at),
-    CONSTRAINT join_sessions_invitation_fk FOREIGN KEY (invitation_id) REFERENCES invitations(invitation_id)
-  ) ENGINE=InnoDB`,
-] as const;
+export const onboardingMySqlMigrationStatements = [] as const;
 
 export const selfServiceMySqlMigrationStatements = [
-  "ALTER TABLE join_sessions MODIFY invitation_id varchar(191) NULL",
-  "ALTER TABLE join_sessions ADD COLUMN purpose varchar(32) NOT NULL DEFAULT 'invite'",
   "ALTER TABLE credentials ADD COLUMN resource_agent_id varchar(191) NULL",
   "ALTER TABLE credentials ADD INDEX credentials_resource_agent_idx (resource_agent_id)",
   "ALTER TABLE credentials ADD CONSTRAINT credentials_resource_agent_fk FOREIGN KEY (resource_agent_id) REFERENCES agents(agent_id)",
@@ -462,9 +412,6 @@ export const accountAgentMySqlMigrationStatements = [
     INDEX personal_migration_backup_agent_idx (legacy_agent_id, source_kind),
     CONSTRAINT personal_migration_backup_agent_fk FOREIGN KEY (legacy_agent_id) REFERENCES personal_agents(agent_id)
   ) ENGINE=InnoDB`,
-  "ALTER TABLE join_sessions ADD COLUMN identity_email varchar(320) NULL",
-  "ALTER TABLE join_sessions ADD COLUMN account_invitation_id varchar(191) NULL",
-  "ALTER TABLE join_sessions ADD CONSTRAINT join_sessions_account_invitation_fk FOREIGN KEY (account_invitation_id) REFERENCES account_member_invitations(invitation_id)",
   `CREATE TABLE IF NOT EXISTS account_sessions (
     session_id varchar(191) PRIMARY KEY,
     credential_id varchar(191) NOT NULL UNIQUE,
@@ -758,6 +705,82 @@ export const humanFriendshipV11MySqlMigrationStatements = [
  * for binary rollback, while current runtime code performs no reads or writes.
  */
 export const legacyCreationStateRetirementV12MySqlMigrationStatements = [] as const;
+
+/**
+ * Fresh authentication cutover. Better Auth owns its core auth tables through
+ * its official migration runner; these tables only bridge a verified auth user
+ * into Agent Fabric's one-time device credential exchange and persistent abuse
+ * limits. No legacy identity data is copied into this model.
+ */
+export const unifiedAuthenticationV13MySqlMigrationStatements = [
+  `CREATE TABLE IF NOT EXISTS account_auth_identities (
+    auth_user_id varchar(191) PRIMARY KEY,
+    principal_id varchar(191) NOT NULL UNIQUE,
+    verified_email varchar(320) NOT NULL,
+    verified_email_digest varchar(64) NOT NULL,
+    created_at datetime(3) NOT NULL,
+    updated_at datetime(3) NOT NULL,
+    INDEX account_auth_identity_email_idx (verified_email_digest),
+    CONSTRAINT account_auth_identity_principal_fk FOREIGN KEY (principal_id) REFERENCES principals(principal_id)
+  ) ENGINE=InnoDB`,
+  `CREATE TABLE IF NOT EXISTS account_device_login_attempts (
+    attempt_id varchar(191) PRIMARY KEY,
+    method varchar(16) NOT NULL,
+    return_uri text NOT NULL,
+    client_state varchar(256) NOT NULL,
+    code_challenge varchar(128) NOT NULL,
+    device_name varchar(120) NOT NULL,
+    email_digest varchar(64),
+    auth_user_id varchar(191),
+    verified_email varchar(320),
+    display_name varchar(120),
+    proof_digest varchar(64) UNIQUE,
+    expires_at datetime(3) NOT NULL,
+    authenticated_at datetime(3),
+    consumed_at datetime(3),
+    created_at datetime(3) NOT NULL,
+    INDEX account_device_login_expiry_idx (expires_at, consumed_at),
+    CONSTRAINT account_device_login_method_chk CHECK (method IN ('google','email'))
+  ) ENGINE=InnoDB`,
+  `CREATE TABLE IF NOT EXISTS auth_security_events (
+    event_id varchar(191) PRIMARY KEY,
+    operation varchar(32) NOT NULL,
+    outcome varchar(32) NOT NULL,
+    metadata json NOT NULL,
+    occurred_at datetime(3) NOT NULL,
+    INDEX auth_security_events_time_idx (occurred_at, operation)
+  ) ENGINE=InnoDB`,
+  `CREATE TABLE IF NOT EXISTS auth_rate_google_ip (
+    \`key\` varchar(255) CHARACTER SET utf8 NOT NULL,
+    points int(9) NOT NULL DEFAULT 0,
+    expire bigint unsigned,
+    PRIMARY KEY (\`key\`)
+  ) ENGINE=InnoDB`,
+  `CREATE TABLE IF NOT EXISTS auth_rate_email_request_ip (
+    \`key\` varchar(255) CHARACTER SET utf8 NOT NULL,
+    points int(9) NOT NULL DEFAULT 0,
+    expire bigint unsigned,
+    PRIMARY KEY (\`key\`)
+  ) ENGINE=InnoDB`,
+  `CREATE TABLE IF NOT EXISTS auth_rate_email_request_address (
+    \`key\` varchar(255) CHARACTER SET utf8 NOT NULL,
+    points int(9) NOT NULL DEFAULT 0,
+    expire bigint unsigned,
+    PRIMARY KEY (\`key\`)
+  ) ENGINE=InnoDB`,
+  `CREATE TABLE IF NOT EXISTS auth_rate_email_verify_ip (
+    \`key\` varchar(255) CHARACTER SET utf8 NOT NULL,
+    points int(9) NOT NULL DEFAULT 0,
+    expire bigint unsigned,
+    PRIMARY KEY (\`key\`)
+  ) ENGINE=InnoDB`,
+  `CREATE TABLE IF NOT EXISTS auth_rate_email_verify_address (
+    \`key\` varchar(255) CHARACTER SET utf8 NOT NULL,
+    points int(9) NOT NULL DEFAULT 0,
+    expire bigint unsigned,
+    PRIMARY KEY (\`key\`)
+  ) ENGINE=InnoDB`,
+] as const;
 
 interface MySqlMigrationConnection {
   query(sql: string, values?: unknown[]): Promise<[unknown, unknown]>;

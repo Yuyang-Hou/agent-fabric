@@ -54,30 +54,43 @@ describe("Server configuration", () => {
     })).toThrow("public-tls-required");
   });
 
-  it("enables Google onboarding only with a complete exact callback configuration", () => {
+  it("enables Better Auth Google login only with a complete configuration", () => {
     const base = { AGENT_FABRIC_PUBLIC_BASE_URL: "https://agents.example.com", AGENT_FABRIC_DATABASE_DRIVER: "mysql", DATABASE_URL: "mysql://example" };
     const configured = loadServerConfig({
-      ...base, AGENT_FABRIC_GOOGLE_CLIENT_ID: "client", AGENT_FABRIC_GOOGLE_CLIENT_SECRET: "secret",
-      AGENT_FABRIC_GOOGLE_REDIRECT_URI: "https://agents.example.com/v1/auth/google/callback",
+      ...base, AGENT_FABRIC_AUTH_SECRET: "a".repeat(32), AGENT_FABRIC_GOOGLE_CLIENT_ID: "client", AGENT_FABRIC_GOOGLE_CLIENT_SECRET: "secret",
     });
-    expect(configured.googleOidc?.clientId).toBe("client");
-    expect(configured.googleOidc?.selfServiceLoginLimit).toBe(20);
+    expect(configured.authentication?.google?.clientId).toBe("client");
+    expect(configured.authentication?.google?.selfServiceLoginLimit).toBe(20);
     expect(configured.component.features).toContain("google-account-login");
     expect(configured.component.features).toContain("friend-invitations");
-    expect(() => loadServerConfig({ ...base, AGENT_FABRIC_GOOGLE_CLIENT_ID: "client" })).toThrow("google-oidc-configuration-incomplete");
-    expect(() => loadServerConfig({
-      ...base, AGENT_FABRIC_GOOGLE_CLIENT_ID: "client", AGENT_FABRIC_GOOGLE_CLIENT_SECRET: "secret",
-      AGENT_FABRIC_GOOGLE_REDIRECT_URI: "https://evil.example/callback",
-    })).toThrow("google-oidc-redirect-invalid");
+    expect(() => loadServerConfig({ ...base, AGENT_FABRIC_AUTH_SECRET: "a".repeat(32), AGENT_FABRIC_GOOGLE_CLIENT_ID: "client" })).toThrow("google-auth-configuration-incomplete");
+    expect(() => loadServerConfig({ ...base, AGENT_FABRIC_GOOGLE_CLIENT_ID: "client", AGENT_FABRIC_GOOGLE_CLIENT_SECRET: "secret" })).toThrow("authentication-secret-invalid");
   });
 
   it("configures bounded Google self-service admission", () => {
     const configured = loadServerConfig({
       AGENT_FABRIC_PUBLIC_BASE_URL: "https://agents.example.com", AGENT_FABRIC_DATABASE_DRIVER: "mysql", DATABASE_URL: "mysql://example",
-      AGENT_FABRIC_GOOGLE_CLIENT_ID: "client", AGENT_FABRIC_GOOGLE_CLIENT_SECRET: "secret", AGENT_FABRIC_GOOGLE_REDIRECT_URI: "https://agents.example.com/v1/auth/google/callback",
+      AGENT_FABRIC_AUTH_SECRET: "a".repeat(32), AGENT_FABRIC_GOOGLE_CLIENT_ID: "client", AGENT_FABRIC_GOOGLE_CLIENT_SECRET: "secret",
       AGENT_FABRIC_GOOGLE_SELF_SERVICE_ALLOWED_DOMAINS: "example.com, example.org ", AGENT_FABRIC_GOOGLE_SELF_SERVICE_LOGIN_LIMIT: "5",
     });
-    expect(configured.googleOidc?.selfServiceAllowedDomains).toEqual(["example.com", "example.org"]);
-    expect(configured.googleOidc?.selfServiceLoginLimit).toBe(5);
+    expect(configured.authentication?.google?.selfServiceAllowedDomains).toEqual(["example.com", "example.org"]);
+    expect(configured.authentication?.google?.selfServiceLoginLimit).toBe(5);
+  });
+
+  it("enables email OTP only with complete TLS SMTP configuration", () => {
+    const base = { AGENT_FABRIC_PUBLIC_BASE_URL: "https://agents.example.com", AGENT_FABRIC_DATABASE_DRIVER: "mysql", DATABASE_URL: "mysql://example", AGENT_FABRIC_AUTH_SECRET: "a".repeat(32) };
+    const configured = loadServerConfig({
+      ...base,
+      AGENT_FABRIC_SMTP_HOST: "smtp.example.com",
+      AGENT_FABRIC_SMTP_PORT: "465",
+      AGENT_FABRIC_SMTP_SECURE: "true",
+      AGENT_FABRIC_SMTP_USERNAME: "mailer",
+      AGENT_FABRIC_SMTP_PASSWORD: "secret",
+      AGENT_FABRIC_SMTP_FROM: "Agent Fabric <login@example.com>",
+    });
+    expect(configured.authentication?.emailOtp?.smtp).toMatchObject({ host: "smtp.example.com", port: 465, secure: true, username: "mailer" });
+    expect(configured.component.features).toContain("email-otp-login");
+    expect(() => loadServerConfig({ ...base, AGENT_FABRIC_SMTP_HOST: "smtp.example.com" })).toThrow("email-otp-configuration-incomplete");
+    expect(() => loadServerConfig({ ...base, AGENT_FABRIC_SMTP_HOST: "smtp.example.com", AGENT_FABRIC_SMTP_PORT: "465", AGENT_FABRIC_SMTP_FROM: "login@example.com", AGENT_FABRIC_SMTP_USERNAME: "mailer" })).toThrow("smtp-auth-configuration-incomplete");
   });
 });

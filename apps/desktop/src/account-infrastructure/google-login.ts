@@ -3,7 +3,7 @@ import { createServer, type Server, type ServerResponse } from "node:http";
 
 import { AgentFabricClient } from "@agent-fabric/client";
 
-type OwnerLoginExchangeResponse = Awaited<ReturnType<AgentFabricClient["exchangeLogin"]>>;
+type DeviceLoginExchangeResponse = Awaited<ReturnType<AgentFabricClient["exchangeDeviceLogin"]>>;
 
 export type DesktopLoginFailureCode =
   | "login-cancelled"
@@ -12,6 +12,7 @@ export type DesktopLoginFailureCode =
   | "login-exchange-failed"
   | "login-session-invalid"
   | "login-cloud-incompatible"
+  | "login-method-unavailable"
   | "login-bootstrap-failed"
   | "login-secure-storage-failed"
   | "server-unreachable";
@@ -31,28 +32,27 @@ export interface DesktopGoogleLoginOptions {
 }
 
 export class DesktopGoogleLogin {
+  #emailAttempt: { readonly email: string; readonly verifier: string; readonly request: { readonly codeChallenge: string; readonly returnUri: string; readonly clientState: string; readonly deviceName: string }; readonly attemptId: string } | undefined;
+
   constructor(readonly options: DesktopGoogleLoginOptions) {}
 
-  async login<T>(activate: (login: OwnerLoginExchangeResponse) => Promise<T>): Promise<T> {
+  async login<T>(activate: (login: DeviceLoginExchangeResponse) => Promise<T>): Promise<T> {
     const verifier = randomBytes(32).toString("base64url");
     const clientState = randomBytes(32).toString("base64url");
     const callback = await listenForCallback(clientState, this.options.timeoutMs ?? 10 * 60 * 1000);
     let submission: CallbackSubmission | undefined;
     try {
       const client = new AgentFabricClient({ baseUrl: this.options.serverBaseUrl });
-      let started;
-      try {
-        started = await client.startLogin({ codeChallenge: createHash("sha256").update(verifier).digest("base64url"), returnUri: callback.returnUri, clientState, deviceName: this.options.deviceName });
-      } catch (error) {
-        throw normalizeLoginError(error, "login-exchange-failed");
-      }
-      try { await this.options.openExternal(started.authorizationUrl); }
+      try { if (!(await client.version()).features.includes("google-account-login")) throw new DesktopLoginError("login-method-unavailable"); }
+      catch (error) { throw normalizeLoginError(error, "server-unreachable"); }
+      const authorizationUrl = client.googleLoginUrl({ codeChallenge: createHash("sha256").update(verifier).digest("base64url"), returnUri: callback.returnUri, clientState, deviceName: this.options.deviceName });
+      try { await this.options.openExternal(authorizationUrl); }
       catch { throw new DesktopLoginError("login-callback-invalid"); }
       submission = await callback.result;
       if (submission.kind === "cancelled") throw new DesktopLoginError("login-cancelled");
       if (submission.kind === "invalid") throw new DesktopLoginError("login-callback-invalid");
-      let exchanged: OwnerLoginExchangeResponse;
-      try { exchanged = await client.exchangeLogin(submission.code, verifier); }
+      let exchanged: DeviceLoginExchangeResponse;
+      try { exchanged = await client.exchangeDeviceLogin(submission.code, verifier); }
       catch (error) { throw normalizeLoginError(error, "login-exchange-failed"); }
       let activated: T;
       try { activated = await activate(exchanged); }
@@ -70,6 +70,40 @@ export class DesktopGoogleLogin {
 
   async logout(token: string): Promise<void> {
     await new AgentFabricClient({ baseUrl: this.options.serverBaseUrl, token }).logout();
+  }
+
+  async requestEmailCode(emailValue: string): Promise<{ readonly expiresAt: string; readonly resendAfterSeconds: number }> {
+    const email = emailValue.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(email) || email.length > 320) throw new DesktopLoginError("login-callback-invalid");
+    const existing = this.#emailAttempt?.email === email ? this.#emailAttempt : undefined;
+    const verifier = existing?.verifier ?? randomBytes(32).toString("base64url");
+    const request = existing?.request ?? {
+      codeChallenge: createHash("sha256").update(verifier).digest("base64url"),
+      returnUri: "http://127.0.0.1:1/callback",
+      clientState: randomBytes(32).toString("base64url"),
+      deviceName: this.options.deviceName,
+    };
+    try {
+      const client = new AgentFabricClient({ baseUrl: this.options.serverBaseUrl });
+      if (!(await client.version()).features.includes("email-otp-login")) throw new DesktopLoginError("login-method-unavailable");
+      const result = await client.requestEmailLoginCode({ email, ...request, ...(existing ? { attemptId: existing.attemptId } : {}) });
+      this.#emailAttempt = { email, verifier, request, attemptId: result.attemptId };
+      return { expiresAt: result.expiresAt, resendAfterSeconds: result.resendAfterSeconds };
+    } catch (error) { throw normalizeLoginError(error, "login-exchange-failed"); }
+  }
+
+  async loginEmail<T>(emailValue: string, otp: string, activate: (login: DeviceLoginExchangeResponse) => Promise<T>): Promise<T> {
+    const email = emailValue.trim().toLowerCase();
+    const attempt = this.#emailAttempt;
+    if (!attempt || attempt.email !== email || !/^\d{6}$/u.test(otp)) throw new DesktopLoginError("login-session-invalid");
+    try {
+      const client = new AgentFabricClient({ baseUrl: this.options.serverBaseUrl });
+      const verified = await client.verifyEmailLoginCode(attempt.attemptId, email, otp);
+      const exchanged = await client.exchangeDeviceLogin(verified.exchangeCode, attempt.verifier);
+      const activated = await activate(exchanged);
+      this.#emailAttempt = undefined;
+      return activated;
+    } catch (error) { throw normalizeLoginError(error, "login-exchange-failed"); }
   }
 }
 
@@ -147,7 +181,7 @@ function normalizeLoginError(error: unknown, fallback: DesktopLoginFailureCode):
   if (error instanceof DesktopLoginError) return error;
   const code = error && typeof error === "object" && "code" in error && typeof error.code === "string" ? error.code : error instanceof Error ? error.message : "";
   if (code === "server-unreachable") return new DesktopLoginError("server-unreachable");
-  if (new Set<DesktopLoginFailureCode>(["login-cancelled", "login-callback-timeout", "login-callback-invalid", "login-exchange-failed", "login-session-invalid", "login-cloud-incompatible", "login-bootstrap-failed", "login-secure-storage-failed"]).has(code as DesktopLoginFailureCode)) return new DesktopLoginError(code as DesktopLoginFailureCode);
+  if (new Set<DesktopLoginFailureCode>(["login-cancelled", "login-callback-timeout", "login-callback-invalid", "login-exchange-failed", "login-session-invalid", "login-cloud-incompatible", "login-method-unavailable", "login-bootstrap-failed", "login-secure-storage-failed"]).has(code as DesktopLoginFailureCode)) return new DesktopLoginError(code as DesktopLoginFailureCode);
   return new DesktopLoginError(fallback);
 }
 

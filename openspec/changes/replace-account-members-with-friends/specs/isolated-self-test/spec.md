@@ -22,11 +22,15 @@ The CLI SHALL provide a human-confirmed self-test for an existing Agent owned by
 ## ADDED Requirements
 
 ### Requirement: Release acceptance proves the real two-Human friend path
-Release acceptance SHALL use two distinct verified Humans with separate personal Accounts and isolated device credentials to prove invitation inbox, explicit acceptance, friend Agent App visibility, MCP/A2A invocation and immediate revocation. Fixtures, owner self-test and one-device credential substitution MUST NOT satisfy this requirement.
+Release acceptance SHALL use two distinct verified Humans with separate personal Accounts and isolated device credentials, with at least one Human authenticated by Google and one by an ordinary-email code, to prove both login methods, invitation inbox, explicit acceptance, friend Agent App visibility, MCP/A2A invocation and immediate revocation. Fixtures, owner self-test and one-device credential substitution MUST NOT satisfy this requirement.
 
 #### Scenario: Two Humans complete friend access
 - **WHEN** Human A invites Human B, B accepts, A opens one online Agent to friends and B refreshes Desktop and Codex MCP
 - **THEN** B sees the Agent's bounded App summary, discovers it through MCP and receives one real standard A2A text result without Account or Runtime management access
+
+#### Scenario: Both authentication methods are proven
+- **WHEN** one acceptance Human signs in through Google and the other signs in through a real delivered ordinary-email code on an isolated device
+- **THEN** each receives only their own personal Account and device credential, and neither login creates compatibility, migration or cross-Account authority
 
 #### Scenario: Revocation is proven
 - **WHEN** either Human removes the Friendship after a completed Task

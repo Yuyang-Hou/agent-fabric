@@ -113,7 +113,7 @@ describe("AccountProductHost", () => {
       restore: vi.fn().mockResolvedValue(undefined), clear: vi.fn().mockResolvedValue(undefined),
     });
     await host.restore();
-    await expect(host.command({ type: "login-start" })).rejects.toThrow("login-secure-storage-failed");
+    await expect(host.command({ type: "login-google" })).rejects.toThrow("login-secure-storage-failed");
     expect(host.snapshot()).toMatchObject({ session: { state: "signed-out" }, errorCode: "login-secure-storage-failed", loading: false });
     expect(JSON.stringify(host.snapshot())).not.toMatch(/private|token/iu);
   });

@@ -191,7 +191,7 @@ else {
     ipcMain.handle(ACCOUNT_PRODUCT_COMMAND_CHANNEL, async (event, value: unknown) => {
       assertMainRenderer(event.sender.id);
       const command = accountProductRendererCommandSchema.parse(value);
-      if (command.type !== "login-start") await restoreAccountProductOnce();
+      if (!command.type.startsWith("login-")) await restoreAccountProductOnce();
       return requireAccountProductHost().command(command);
     });
     accountProductHost?.subscribe((snapshot) => { if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(ACCOUNT_PRODUCT_CHANGED_CHANNEL, accountProductRendererSnapshotSchema.parse(snapshot)); });

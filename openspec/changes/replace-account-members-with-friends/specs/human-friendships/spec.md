@@ -1,14 +1,14 @@
 ## ADDED Requirements
 
 ### Requirement: Verified Humans receive role-free friend invitations
-An authenticated Human SHALL create a bounded expiring friend invitation for one normalized email without assigning an Account role, sharing an invitation secret or adding the recipient to the inviter's Account. The intended Human MUST see the invitation in their incoming inbox only after Google OIDC verifies the matching identity.
+An authenticated Human SHALL create a bounded expiring friend invitation for one normalized email without assigning an Account role, sharing an invitation secret or adding the recipient to the inviter's Account. The intended Human MUST see the invitation in their incoming inbox only after a supported login method verifies the matching identity.
 
 #### Scenario: Existing user receives an invitation
 - **WHEN** an authenticated Human invites another registered Human's verified email
 - **THEN** the inviter sees one pending outgoing record and the intended recipient sees one pending incoming record with inviter identity, creation time and expiry
 
 #### Scenario: Unregistered recipient signs in later
-- **WHEN** an invitation targets an email that has no Human Principal and that email later completes valid Google OIDC
+- **WHEN** an invitation targets an email that has no Human Principal and that email later completes valid Google OIDC or email-code authentication
 - **THEN** the product creates or restores the recipient's own personal Account and then shows the pending invitation without joining the inviter's Account
 
 #### Scenario: Unrelated user lists invitations

@@ -67,11 +67,12 @@ describe("Human friendships API", () => {
     const server = createAgentFabricServer({ ...base, port: 0 }, { store });
     await server.start();
     try {
-      for (const path of ["/v1/members", "/v1/member-invitations", "/v1/auth/member-join/start", "/v1/auth/member-join/exchange"]) {
-        const response = await fetch(`${server.address()}${path}`, { method: path.includes("auth") ? "POST" : "GET", headers: { "content-type": "application/json" }, ...(path.includes("auth") ? { body: "{}" } : {}) });
+      for (const path of ["/v1/members", "/v1/member-invitations"]) {
+        const response = await fetch(`${server.address()}${path}`);
         expect(response.status).toBe(410);
         expect(await response.json()).toEqual({ error: { code: "account-membership-model-retired" } });
       }
+      for (const path of ["/v1/auth/member-join/start", "/v1/auth/member-join/exchange"]) expect((await fetch(`${server.address()}${path}`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" })).status).toBe(404);
     } finally { await server.stop(); }
   });
 });

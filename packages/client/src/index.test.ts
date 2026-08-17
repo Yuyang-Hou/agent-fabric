@@ -24,13 +24,16 @@ describe("AgentFabricClient", () => {
     await expect(client.listInvokableAgents()).rejects.not.toThrow("super-secret");
   });
 
-  it("starts and exchanges an Account login without an authorization header", async () => {
+  it("builds Google, email and exchange requests without an authorization header", async () => {
     const fetchImpl = vi.fn<typeof fetch>()
-      .mockResolvedValueOnce(new Response(JSON.stringify({ authorizationUrl: "https://accounts.google.com/auth", expiresAt: "2026-08-12T01:00:00.000Z" }), { status: 201 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ attemptId: "auth-attempt:one", expiresAt: "2026-08-12T01:00:00.000Z", resendAfterSeconds: 60 }), { status: 202 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ exchangeCode: "exchange-secret" }), { status: 200 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({ server: "https://fabric.example", token: "device-secret", humanPrincipalId: "human:one", principalId: "device:one", accountId: "account:one", displayName: "Owner", expiresAt: "2026-09-11T00:00:00.000Z" }), { status: 200 }));
     const client = new AgentFabricClient({ baseUrl: "https://fabric.example", fetchImpl, retries: 0 });
-    await client.startLogin({ codeChallenge: "a".repeat(43), returnUri: "http://127.0.0.1:54321/callback", clientState: "b".repeat(32), deviceName: "Mac" });
-    await client.exchangeLogin("exchange-secret", "v".repeat(43));
+    expect(client.googleLoginUrl({ codeChallenge: "a".repeat(43), returnUri: "http://127.0.0.1:54321/callback", clientState: "b".repeat(32), deviceName: "Mac" })).toContain("/v1/auth/device/google/start?");
+    await client.requestEmailLoginCode({ email: "alice@example.com", codeChallenge: "a".repeat(43), returnUri: "http://127.0.0.1:54321/callback", clientState: "b".repeat(32), deviceName: "Mac" });
+    await client.verifyEmailLoginCode("auth-attempt:one", "alice@example.com", "123456");
+    await client.exchangeDeviceLogin("exchange-secret", "v".repeat(43));
     for (const call of fetchImpl.mock.calls) {
       expect(call[1]?.headers).not.toHaveProperty("authorization");
       expect(JSON.stringify(call[1]?.headers)).not.toContain("device-secret");

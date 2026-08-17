@@ -1,126 +1,117 @@
 import { describe, expect, it, vi } from "vitest";
 
+import type { AuthenticationBroker } from "./auth-broker.js";
 import type { PersistenceStore } from "./persistence-store.js";
 import { loadServerConfig } from "./server-config.js";
 import { createAgentFabricServer } from "./server.js";
 
-describe("onboarding API", () => {
-  it("creates an isolated self-service owner login without server admin scope", async () => {
+const authenticationConfig = {
+  secret: "s".repeat(32),
+  google: { clientId: "client", clientSecret: "secret", selfServiceAllowedDomains: [], selfServiceLoginLimit: 20 },
+  emailOtp: { smtp: { host: "smtp.example.com", port: 465, secure: true, from: "Agent Fabric <login@example.com>" }, requestLimitPerHour: 6, verifyLimitPerTenMinutes: 10 },
+} as const;
+
+function fakeBroker(overrides: Partial<AuthenticationBroker> = {}): AuthenticationBroker {
+  return {
+    handler: (_request, response) => response.status(404).end(),
+    googleEnabled: true,
+    initialize: vi.fn(),
+    emailOtpAvailable: vi.fn().mockReturnValue(true),
+    consumeGoogleStart: vi.fn(),
+    consumeEmail: vi.fn(),
+    beginGoogle: vi.fn().mockResolvedValue({ url: "https://accounts.google.com/auth", headers: new Headers({ "set-cookie": "oauth-state=opaque; HttpOnly; Secure" }) }),
+    requestEmailCode: vi.fn(),
+    verifyEmailCode: vi.fn().mockResolvedValue({ id: "auth-user:alice", email: "alice@example.com", emailVerified: true, name: "Alice" }),
+    sessionUser: vi.fn().mockResolvedValue({ id: "auth-user:alice", email: "alice@example.com", emailVerified: true, name: "Alice" }),
+    endSession: vi.fn().mockResolvedValue(new Headers({ "set-cookie": "better-auth.session_token=; Max-Age=0" })),
+    close: vi.fn(),
+    ...overrides,
+  };
+}
+
+function baseConfig() {
+  const base = loadServerConfig({ AGENT_FABRIC_PUBLIC_BASE_URL: "http://127.0.0.1:8787", AGENT_FABRIC_DATABASE_DRIVER: "mysql", DATABASE_URL: "mysql://unused:unused@localhost/unused" });
+  return { ...base, port: 0, authentication: authenticationConfig };
+}
+
+describe("unified authentication API", () => {
+  it("uses the broker for Google and redeems a one-time device proof", async () => {
     const store = {
-      migrate: vi.fn(), close: vi.fn(), createOwnerLoginSession: vi.fn().mockResolvedValue({ joinSessionId: "login:one" }),
-      getAuthSessionByState: vi.fn().mockResolvedValue({ joinSessionId: "login:one", nonceDigest: "nonce-digest", expiresAt: "2026-08-12T01:00:00.000Z", purpose: "owner", returnUri: "http://127.0.0.1:45678/callback", clientState: "client-state" }),
-      authenticateJoinSession: vi.fn().mockResolvedValue({ returnUri: "http://127.0.0.1:45678/callback", clientState: "client-state" }),
-      redeemOwnerLoginSession: vi.fn()
-        .mockResolvedValueOnce({ token: "owner-device-secret", humanPrincipalId: "human:alice", principalId: "device:owner", displayName: "Alice", expiresAt: "2026-11-10T00:00:00.000Z" })
-        .mockRejectedValueOnce(new Error("login-exchange-denied")),
+      migrate: vi.fn(), close: vi.fn(),
+      createAccountLoginAttempt: vi.fn().mockResolvedValue({ attemptId: "auth-attempt:one", expiresAt: "2026-08-17T01:10:00.000Z" }),
+      authenticateAccountLoginAttempt: vi.fn().mockResolvedValue({ returnUri: "http://127.0.0.1:45678/callback", clientState: "client-state" }),
+      redeemAccountLoginAttempt: vi.fn().mockResolvedValue({ token: "device-secret", humanPrincipalId: "human:alice", principalId: "device:alice", accountId: "account:alice", displayName: "Alice", expiresAt: "2026-11-15T00:00:00.000Z" }),
     } as unknown as PersistenceStore;
-    const oidcProvider = { authorizationUrl: vi.fn(({ state }: { state: string }) => `https://accounts.google.com/auth?state=${state}`), exchangeCode: vi.fn().mockResolvedValue({ issuer: "https://accounts.google.com", subject: "subject", displayName: "Alice", email: "alice@example.com" }) };
-    const base = loadServerConfig({ AGENT_FABRIC_PUBLIC_BASE_URL: "http://127.0.0.1:8787", AGENT_FABRIC_DATABASE_DRIVER: "mysql", DATABASE_URL: "mysql://unused:unused@localhost/unused" });
-    const server = createAgentFabricServer({ ...base, port: 0, googleOidc: { clientId: "client", clientSecret: "secret", redirectUri: "https://fabric.example/v1/auth/google/callback", selfServiceAllowedDomains: [], selfServiceLoginLimit: 20 } }, { store, oidcProvider });
+    const broker = fakeBroker();
+    const server = createAgentFabricServer(baseConfig(), { store, authenticationBroker: broker });
     await server.start();
     try {
-      const started = await fetch(`${server.address()}/v1/auth/login/start`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ codeChallenge: "c".repeat(43), returnUri: "http://127.0.0.1:45678/callback", clientState: "s".repeat(32), deviceName: "Alice Mac" }) });
-      expect(started.status).toBe(201);
-      const oauthState = new URL((await started.json() as { authorizationUrl: string }).authorizationUrl).searchParams.get("state");
-      expect(store.createOwnerLoginSession).toHaveBeenCalledWith(expect.not.objectContaining({ scopes: expect.anything() }));
-      const callback = await fetch(`${server.address()}/v1/auth/google/callback?state=${oauthState}&code=google-code`, { redirect: "manual" });
-      expect(callback.status).toBe(303);
-      expect(oidcProvider.exchangeCode).toHaveBeenCalledWith("google-code", "nonce-digest", expect.stringMatching(/^[A-Za-z0-9_-]{43}$/u));
-      const replayedCallback = await fetch(`${server.address()}/v1/auth/google/callback?state=${oauthState}&code=google-code`, { redirect: "manual" });
-      expect(replayedCallback.status).toBe(503);
-      expect(oidcProvider.exchangeCode).toHaveBeenCalledTimes(1);
-      const injectedIdentity = await fetch(`${server.address()}/v1/auth/login/exchange`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ exchangeCode: "exchange", codeVerifier: "v".repeat(43), humanPrincipalId: "human:mallory" }) });
-      expect(injectedIdentity.status).toBe(400);
-      const exchanged = await fetch(`${server.address()}/v1/auth/login/exchange`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ exchangeCode: "exchange", codeVerifier: "v".repeat(43) }) });
-      expect(await exchanged.json()).toMatchObject({ token: "owner-device-secret", humanPrincipalId: "human:alice" });
-      const replayedExchange = await fetch(`${server.address()}/v1/auth/login/exchange`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ exchangeCode: "exchange", codeVerifier: "v".repeat(43) }) });
-      expect(replayedExchange.status).toBe(403);
+      const start = new URL("/v1/auth/device/google/start", server.address());
+      start.search = new URLSearchParams({ codeChallenge: "c".repeat(43), returnUri: "http://127.0.0.1:45678/callback", clientState: "client-state", deviceName: "Alice Mac" }).toString();
+      const started = await fetch(start, { redirect: "manual" });
+      expect(started.status).toBe(303);
+      expect(started.headers.get("location")).toBe("https://accounts.google.com/auth");
+      expect(store.createAccountLoginAttempt).toHaveBeenCalledWith(expect.objectContaining({ method: "google", codeChallenge: "c".repeat(43) }));
+
+      const completed = await fetch(`${server.address()}/v1/auth/device/google/complete?attemptId=auth-attempt%3Aone`, { redirect: "manual" });
+      expect(completed.status).toBe(303);
+      const proof = new URL(completed.headers.get("location") as string).searchParams.get("code");
+      expect(proof).toMatch(/^[A-Za-z0-9_-]{43}$/u);
+      expect(store.authenticateAccountLoginAttempt).toHaveBeenCalledWith(expect.objectContaining({ attemptId: "auth-attempt:one", expectedMethod: "google", authUserId: "auth-user:alice" }));
+
+      const exchanged = await fetch(`${server.address()}/v1/auth/device/exchange`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ exchangeCode: proof, codeVerifier: "v".repeat(43) }) });
+      expect(await exchanged.json()).toMatchObject({ token: "device-secret", humanPrincipalId: "human:alice", accountId: "account:alice" });
+      expect(store.redeemAccountLoginAttempt).toHaveBeenCalledWith(expect.objectContaining({ codeChallenge: expect.stringMatching(/^[A-Za-z0-9_-]{43}$/u) }));
     } finally { await server.stop(); }
   });
 
-  it("retires invited Account join because friend invitations never change Account ownership", async () => {
+  it("requests and verifies email OTP without exposing the Better Auth session", async () => {
+    const store = {
+      migrate: vi.fn(), close: vi.fn(),
+      createAccountLoginAttempt: vi.fn().mockResolvedValue({ attemptId: "auth-attempt:email", expiresAt: "2026-08-17T01:10:00.000Z" }),
+      getAccountLoginAttempt: vi.fn().mockResolvedValue({ attemptId: "auth-attempt:email", method: "email", returnUri: "http://127.0.0.1:45678/callback", clientState: "client-state", expiresAt: "2026-08-17T01:10:00.000Z", emailDigest: "ff8d9819fc0e12bf0d24892e45987e249a28dce836a85cad60e28eaaa8c6d976" }),
+      authenticateAccountLoginAttempt: vi.fn().mockResolvedValue({ returnUri: "http://127.0.0.1:45678/callback", clientState: "client-state" }),
+    } as unknown as PersistenceStore;
+    const broker = fakeBroker();
+    const server = createAgentFabricServer(baseConfig(), { store, authenticationBroker: broker });
+    await server.start();
+    try {
+      const requested = await fetch(`${server.address()}/v1/auth/device/email/request`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: "Alice@Example.com", codeChallenge: "c".repeat(43), returnUri: "http://127.0.0.1:45678/callback", clientState: "client-state", deviceName: "Alice Mac" }) });
+      expect(requested.status).toBe(202);
+      expect(await requested.json()).toEqual({ attemptId: "auth-attempt:email", expiresAt: "2026-08-17T01:10:00.000Z", resendAfterSeconds: 60 });
+      expect(broker.requestEmailCode).toHaveBeenCalledWith("alice@example.com");
+
+      const verified = await fetch(`${server.address()}/v1/auth/device/email/verify`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ attemptId: "auth-attempt:email", email: "alice@example.com", otp: "123456" }) });
+      expect(verified.status).toBe(200);
+      expect(await verified.json()).toEqual({ exchangeCode: expect.stringMatching(/^[A-Za-z0-9_-]{43}$/u) });
+      expect(store.authenticateAccountLoginAttempt).toHaveBeenCalledWith(expect.objectContaining({ expectedMethod: "email", authUserId: "auth-user:alice" }));
+    } finally { await server.stop(); }
+  });
+
+  it("removes the legacy login endpoints and rejects login when authentication is disabled", async () => {
     const store = { migrate: vi.fn(), close: vi.fn() } as unknown as PersistenceStore;
     const base = loadServerConfig({ AGENT_FABRIC_PUBLIC_BASE_URL: "http://127.0.0.1:8787", AGENT_FABRIC_DATABASE_DRIVER: "mysql", DATABASE_URL: "mysql://unused:unused@localhost/unused" });
     const server = createAgentFabricServer({ ...base, port: 0 }, { store });
     await server.start();
     try {
-      const started = await fetch(`${server.address()}/v1/auth/member-join/start`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ invitationToken: "member-invite-secret", codeChallenge: "c".repeat(43), returnUri: "http://127.0.0.1:45678/callback", clientState: "s".repeat(32), deviceName: "Bob Mac" }) });
-      expect(started.status).toBe(410);
-      expect(await started.json()).toEqual({ error: { code: "account-membership-model-retired" } });
-      const exchange = await fetch(`${server.address()}/v1/auth/member-join/exchange`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ exchangeCode: "exchange", codeVerifier: "v".repeat(43) }) });
-      expect(exchange.status).toBe(410);
-      expect(await exchange.json()).toEqual({ error: { code: "account-membership-model-retired" } });
+      expect((await fetch(`${server.address()}/v1/auth/login/start`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" })).status).toBe(404);
+      const start = new URL("/v1/auth/device/google/start", server.address());
+      start.search = new URLSearchParams({ codeChallenge: "c".repeat(43), returnUri: "http://127.0.0.1:45678/callback", clientState: "client-state", deviceName: "Mac" }).toString();
+      const disabled = await fetch(start);
+      expect(disabled.status).toBe(503);
+      expect(await disabled.json()).toEqual({ error: { code: "authentication-unavailable" } });
     } finally { await server.stop(); }
-  });
-
-  it("converts Google cancellation into a bound loopback result and consumes the session", async () => {
-    const store = {
-      migrate: vi.fn(), close: vi.fn(), createOwnerLoginSession: vi.fn(), cancelAuthSession: vi.fn(),
-      getAuthSessionByState: vi.fn().mockResolvedValue({ joinSessionId: "login:cancel", nonceDigest: "nonce", expiresAt: "2026-08-12T01:00:00.000Z", purpose: "owner", returnUri: "http://127.0.0.1:45678/callback", clientState: "client-state" }),
-    } as unknown as PersistenceStore;
-    const oidcProvider = { authorizationUrl: vi.fn(({ state }: { state: string }) => `https://accounts.google.com/auth?state=${state}`), exchangeCode: vi.fn() };
-    const base = loadServerConfig({ AGENT_FABRIC_PUBLIC_BASE_URL: "http://127.0.0.1:8787", AGENT_FABRIC_DATABASE_DRIVER: "mysql", DATABASE_URL: "mysql://unused:unused@localhost/unused" });
-    const server = createAgentFabricServer({ ...base, port: 0, googleOidc: { clientId: "client", clientSecret: "secret", redirectUri: "https://fabric.example/v1/auth/google/callback", selfServiceAllowedDomains: [], selfServiceLoginLimit: 20 } }, { store, oidcProvider });
-    await server.start();
-    try {
-      const started = await fetch(`${server.address()}/v1/auth/login/start`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ codeChallenge: "c".repeat(43), returnUri: "http://127.0.0.1:45678/callback", clientState: "s".repeat(32), deviceName: "Alice Mac" }) });
-      const oauthState = new URL((await started.json() as { authorizationUrl: string }).authorizationUrl).searchParams.get("state");
-      const callback = await fetch(`${server.address()}/v1/auth/google/callback?state=${oauthState}&error=access_denied`, { redirect: "manual" });
-      expect(callback.status).toBe(303);
-      expect(callback.headers.get("location")).toBe("http://127.0.0.1:45678/callback?error=login_cancelled&state=client-state");
-      expect(store.cancelAuthSession).toHaveBeenCalledWith("login:cancel");
-      expect(oidcProvider.exchangeCode).not.toHaveBeenCalled();
-    } finally { await server.stop(); }
-  });
-
-  it("rejects an expired OAuth callback before exchanging the Google code", async () => {
-    const now = vi.spyOn(Date, "now").mockReturnValue(1_000_000);
-    const store = {
-      migrate: vi.fn(), close: vi.fn(), createOwnerLoginSession: vi.fn(),
-      getAuthSessionByState: vi.fn().mockResolvedValue({ joinSessionId: "login:expired", nonceDigest: "nonce", expiresAt: new Date(1_600_000).toISOString(), purpose: "owner", returnUri: "http://127.0.0.1:45678/callback", clientState: "client-state" }),
-    } as unknown as PersistenceStore;
-    const oidcProvider = { authorizationUrl: vi.fn(({ state }: { state: string }) => `https://accounts.google.com/auth?state=${state}`), exchangeCode: vi.fn() };
-    const base = loadServerConfig({ AGENT_FABRIC_PUBLIC_BASE_URL: "http://127.0.0.1:8787", AGENT_FABRIC_DATABASE_DRIVER: "mysql", DATABASE_URL: "mysql://unused:unused@localhost/unused" });
-    const server = createAgentFabricServer({ ...base, port: 0, googleOidc: { clientId: "client", clientSecret: "secret", redirectUri: "https://fabric.example/v1/auth/google/callback", selfServiceAllowedDomains: [], selfServiceLoginLimit: 20 } }, { store, oidcProvider });
-    await server.start();
-    try {
-      const started = await fetch(`${server.address()}/v1/auth/login/start`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ codeChallenge: "c".repeat(43), returnUri: "http://127.0.0.1:45678/callback", clientState: "s".repeat(32), deviceName: "Alice Mac" }) });
-      const oauthState = new URL((await started.json() as { authorizationUrl: string }).authorizationUrl).searchParams.get("state");
-      now.mockReturnValue(1_000_000 + 11 * 60 * 1_000);
-      const callback = await fetch(`${server.address()}/v1/auth/google/callback?state=${oauthState}&code=google-code`, { redirect: "manual" });
-      expect(callback.status).toBe(503);
-      expect(oidcProvider.exchangeCode).not.toHaveBeenCalled();
-    } finally {
-      now.mockRestore();
-      await server.stop();
-    }
   });
 
   it("revokes the authenticated App credential on logout", async () => {
-    const store = {
-      migrate: vi.fn(), close: vi.fn(), revokeCredential: vi.fn(),
-      authenticate: vi.fn().mockResolvedValue({ credentialId: "credential:app", principalId: "device:owner", instanceId: "instance:one", scopes: ["account:access"] }),
-    } as unknown as PersistenceStore;
+    const store = { migrate: vi.fn(), close: vi.fn(), revokeCredential: vi.fn(), authenticate: vi.fn().mockResolvedValue({ credentialId: "credential:app", principalId: "device:owner", instanceId: "instance:one", scopes: ["account:access"] }) } as unknown as PersistenceStore;
     const base = loadServerConfig({ AGENT_FABRIC_PUBLIC_BASE_URL: "http://127.0.0.1:8787", AGENT_FABRIC_DATABASE_DRIVER: "mysql", DATABASE_URL: "mysql://unused:unused@localhost/unused" });
     const server = createAgentFabricServer({ ...base, port: 0 }, { store });
     await server.start();
     try {
       const response = await fetch(`${server.address()}/v1/auth/logout`, { method: "POST", headers: { authorization: "Bearer app-credential", "content-type": "application/json" }, body: "{}" });
       expect(response.status).toBe(200);
-      expect(await response.json()).toEqual({ status: "logged_out" });
       expect(store.revokeCredential).toHaveBeenCalledWith("credential:app");
-    } finally { await server.stop(); }
-  });
-
-  it("rejects login when OIDC is disabled", async () => {
-    const store = { migrate: vi.fn(), close: vi.fn() } as unknown as PersistenceStore;
-    const base = loadServerConfig({ AGENT_FABRIC_PUBLIC_BASE_URL: "http://127.0.0.1:8787", AGENT_FABRIC_DATABASE_DRIVER: "mysql", DATABASE_URL: "mysql://unused:unused@localhost/unused" });
-    const server = createAgentFabricServer({ ...base, port: 0 }, { store });
-    await server.start();
-    try {
-      const response = await fetch(`${server.address()}/v1/auth/login/start`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ codeChallenge: "c".repeat(43), returnUri: "http://127.0.0.1:45678/callback", clientState: "s".repeat(32), deviceName: "Mac" }) });
-      expect(response.status).toBe(503);
-      expect(await response.json()).toEqual({ error: { code: "oidc-unavailable" } });
     } finally { await server.stop(); }
   });
 });

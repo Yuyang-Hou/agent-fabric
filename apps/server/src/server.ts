@@ -1,18 +1,18 @@
-import { joinExchangeRequestSchema, ownerLoginStartRequestSchema, type CredentialScope } from "@agent-fabric/fabric-contracts";
+import { joinExchangeRequestSchema, type CredentialScope } from "@agent-fabric/fabric-contracts";
 import { restHandler } from "@a2a-js/sdk/server/express";
 import { AgentCard } from "@a2a-js/sdk";
 import { accountRuntimeClientEnvelopeSchema, agentCatalogPageSchema, agentCatalogQuerySchema, agentPrivateConfigurationUpdateSchema, approvedAgentTemplates, completeLegacyAgentMigrationRecoverySchema, legacyAgentMigrationRecoverySchema, runtimeCapabilitiesSchema, runtimeSkillSummarySchema, type AccountResourceInvalidation, type AgentCatalogQuery, type AgentRuntime, type RuntimeCapabilities, type RuntimeSkillSummary } from "@agent-fabric/account-agent-domain";
 import type { User } from "@a2a-js/sdk/server";
 import express, { type NextFunction, type Request, type Response } from "express";
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { createServer, type Server as HttpServer } from "node:http";
 import { WebSocketServer } from "ws";
 
 import { AccountAgentA2ARegistry, type AccountAgentExecutionPort } from "./account-agent-a2a.js";
 import { AccountInvalidationHub } from "./account-invalidation.js";
 import { AccountRuntimeTunnelRegistry } from "./account-runtime-tunnel.js";
+import { AuthenticationBrokerError, createAuthenticationBroker, type AuthenticationBroker } from "./auth-broker.js";
 import { createPersistenceStore, requireAccountAgentA2APersistence, requireAccountAgentManagementPersistence, requireAccountAuthenticationPersistence, requireHumanFriendshipManagementPersistence, requireAccountMigrationRecoveryPersistence, requireAccountProductBootstrapPersistence, requireAccountRuntimeConnectionPersistence, requireAccountRuntimeManagementPersistence, requireAccountRuntimeObservationPersistence, requireAccountSelfTestPersistence, type PersistenceStore } from "./persistence-store.js";
-import { digestBase64Url, digestHex, GoogleOidcProvider, type OidcProvider } from "./google-oidc.js";
 import type { ServerConfig } from "./server-config.js";
 
 interface RequestPrincipal extends User {
@@ -35,7 +35,7 @@ export interface AgentFabricServer {
 }
 
 export function createAgentFabricServer(config: ServerConfig, options: {
-  readonly oidcProvider?: OidcProvider;
+  readonly authenticationBroker?: AuthenticationBroker;
   readonly store?: PersistenceStore;
   readonly accountAgentExecution?: AccountAgentExecutionPort;
 } = {}): AgentFabricServer {
@@ -50,16 +50,15 @@ export function createAgentFabricServer(config: ServerConfig, options: {
       for (const userId of userIds) accountInvalidations.publish({ type: "human-resource-invalidated", userId, resourceType: "friend-agent", resourceId: "friend-agent-catalog", aspects, observedAt: event.observedAt });
     }).catch(() => undefined);
   };
-  const oidc = options.oidcProvider ?? (config.googleOidc ? new GoogleOidcProvider(config.googleOidc) : undefined);
+  const authentication = options.authenticationBroker ?? createAuthenticationBroker(config);
   const app = express();
-  const ownerLoginAttempts = new Map<string, { count: number; resetAt: number }>();
   const friendInvitationAttempts = new Map<string, { count: number; resetAt: number }>();
-  const oauthPkceVerifiers = new Map<string, { verifier: string; expiresAt: number }>();
   const accountAgentExecution = options.accountAgentExecution ?? accountRuntimeTunnels;
   const accountA2A = new AccountAgentA2ARegistry(store, config.publicBaseUrl, accountAgentExecution, (event) => {
     publishAccountInvalidation({ type: "account-resource-invalidated", accountId: event.accountId, resourceType: "agent", resourceId: event.agentId, aspects: [...event.aspects], observedAt: event.observedAt });
   });
   app.disable("x-powered-by");
+  if (authentication) app.all("/v1/auth/broker/callback/google", authentication.handler);
   app.use(express.json({ limit: "64kb", strict: true }));
 
   let ready = false;
@@ -72,7 +71,10 @@ export function createAgentFabricServer(config: ServerConfig, options: {
       response.status(503).json({ status: "not-ready", database: "unavailable" });
     }
   });
-  app.get("/v1/version", (_request, response) => response.json(config.component));
+  app.get("/v1/version", (_request, response) => response.json({
+    ...config.component,
+    features: config.component.features.filter((feature) => feature !== "email-otp-login" || authentication?.emailOtpAvailable()),
+  }));
 
   app.post("/v1/agents", requireAnyScope(store, config, ["account:access"]), asyncRoute(async (request, response) => {
     const credentialId = requirePrincipal(request).credentialId;
@@ -249,61 +251,94 @@ export function createAgentFabricServer(config: ServerConfig, options: {
     restHandler({ requestHandler: handler, userBuilder: async () => requirePrincipal(request) })(request, response, next);
   }));
 
-  app.post("/v1/auth/login/start", asyncRoute(async (request, response) => {
-    const provider = requireOidc(oidc);
-    enforceLoginRateLimit(ownerLoginAttempts, request.ip ?? request.socket.remoteAddress ?? "unknown", config.googleOidc?.selfServiceLoginLimit ?? 20);
-    const input = ownerLoginStartRequestSchema.parse(request.body);
-    validateLoopbackReturnUri(input.returnUri);
-    const oauthState = randomBytes(32).toString("base64url"); const nonce = randomBytes(32).toString("base64url"); const oauthCodeVerifier = randomBytes(32).toString("base64url");
-    const now = Date.now(); const expiresAt = new Date(now + 10 * 60 * 1000).toISOString();
-    await store.createOwnerLoginSession({ oauthStateDigest: digestHex(oauthState), nonceDigest: digestHex(nonce), returnUri: input.returnUri, clientState: input.clientState, codeChallenge: input.codeChallenge, deviceName: input.deviceName, expiresAt, createdAt: new Date(now).toISOString() });
-    oauthPkceVerifiers.set(digestHex(oauthState), { verifier: oauthCodeVerifier, expiresAt: now + 10 * 60 * 1000 });
-    response.status(201).json({ authorizationUrl: provider.authorizationUrl({ state: oauthState, nonce, codeChallenge: digestBase64Url(oauthCodeVerifier) }), expiresAt });
+  app.get("/v1/auth/device/google/start", asyncRoute(async (request, response) => {
+    const broker = requireAuthentication(authentication, "google");
+    const returnUri = queryString(request, "returnUri");
+    validateLoopbackReturnUri(returnUri);
+    const codeChallenge = pkceValue(queryString(request, "codeChallenge"), "codeChallenge");
+    const clientState = boundedValue(queryString(request, "clientState"), "clientState", 200);
+    const deviceName = boundedValue(queryString(request, "deviceName"), "deviceName", 120);
+    await broker.consumeGoogleStart(requestIp(request));
+    const now = Date.now();
+    const attempt = await store.createAccountLoginAttempt({ method: "google", returnUri, clientState, codeChallenge, deviceName, expiresAt: new Date(now + 10 * 60 * 1000).toISOString(), createdAt: new Date(now).toISOString() });
+    const completion = new URL("/v1/auth/device/google/complete", config.publicBaseUrl);
+    completion.searchParams.set("attemptId", attempt.attemptId);
+    const failure = new URL("/v1/auth/device/google/error", config.publicBaseUrl);
+    failure.searchParams.set("attemptId", attempt.attemptId);
+    const destination = await broker.beginGoogle({ callbackURL: completion.toString(), errorCallbackURL: failure.toString(), headers: requestHeaders(request) });
+    appendSetCookies(response, destination.headers);
+    response.redirect(303, destination.url);
   }));
 
-  app.post("/v1/auth/member-join/start", (_request, response) => retiredAccountMembershipResponse(response));
-
-  app.get("/v1/auth/google/callback", asyncRoute(async (request, response) => {
-    const provider = requireOidc(oidc);
-    const state = queryString(request, "state");
-    const stateDigest = digestHex(state);
-    const session = await store.getAuthSessionByState(stateDigest);
-    const oauthPkce = oauthPkceVerifiers.get(stateDigest);
-    if (!oauthPkce || oauthPkce.expiresAt <= Date.now()) throw new Error("oauth-pkce-session-unavailable");
-    const providerError = optionalQueryString(request, "error");
-    if (providerError) {
-      oauthPkceVerifiers.delete(stateDigest);
-      await store.cancelAuthSession(session.joinSessionId);
-      if (providerError !== "access_denied") throw new Error("oidc-provider-error");
-      const redirect = new URL(session.returnUri);
-      redirect.searchParams.set("error", "login_cancelled");
-      redirect.searchParams.set("state", session.clientState);
-      response.redirect(303, redirect.toString());
-      return;
-    }
-    const code = queryString(request, "code");
-    const identity = await provider.exchangeCode(code, session.nonceDigest, oauthPkce.verifier);
-    oauthPkceVerifiers.delete(stateDigest);
-    if (session.purpose === "owner") enforceSelfServiceIdentity(identity.email, config.googleOidc?.selfServiceAllowedDomains ?? []);
+  app.get("/v1/auth/device/google/complete", asyncRoute(async (request, response) => {
+    const broker = requireAuthentication(authentication, "google");
+    const attemptId = queryString(request, "attemptId");
+    const user = await broker.sessionUser(requestHeaders(request));
+    if (!user?.emailVerified) throw new AuthenticationBrokerError("authentication-failed");
+    enforceSelfServiceIdentity(user.email, config.authentication?.google?.selfServiceAllowedDomains ?? []);
     const exchangeCode = randomBytes(32).toString("base64url");
-    const destination = await store.authenticateJoinSession({
-      joinSessionId: session.joinSessionId, issuer: identity.issuer, subjectDigest: digestHex(identity.subject), displayName: identity.displayName,
-      email: identity.email, exchangeDigest: digestHex(exchangeCode),
-    });
+    const destination = await store.authenticateAccountLoginAttempt({ attemptId, expectedMethod: "google", authUserId: user.id, verifiedEmail: user.email, displayName: user.name, proofDigest: digestHex(exchangeCode) });
+    appendSetCookies(response, await broker.endSession(requestHeaders(request)));
     const redirect = new URL(destination.returnUri);
     redirect.searchParams.set("code", exchangeCode);
     redirect.searchParams.set("state", destination.clientState);
     response.redirect(303, redirect.toString());
   }));
 
-  app.post("/v1/auth/login/exchange", asyncRoute(async (request, response) => {
-    requireOidc(oidc);
-    const input = joinExchangeRequestSchema.parse(request.body);
-    const result = await store.redeemOwnerLoginSession({ exchangeDigest: digestHex(input.exchangeCode), codeChallenge: digestBase64Url(input.codeVerifier), audience: config.publicBaseUrl, credentialExpiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString() });
-    response.json({ server: config.publicBaseUrl, ...result });
+  app.get("/v1/auth/device/google/error", asyncRoute(async (request, response) => {
+    const broker = requireAuthentication(authentication, "google");
+    const destination = await store.cancelAccountLoginAttempt(queryString(request, "attemptId"));
+    appendSetCookies(response, await broker.endSession(requestHeaders(request)));
+    const redirect = new URL(destination.returnUri);
+    redirect.searchParams.set("error", "login_cancelled");
+    redirect.searchParams.set("state", destination.clientState);
+    response.redirect(303, redirect.toString());
   }));
 
-  app.post("/v1/auth/member-join/exchange", (_request, response) => retiredAccountMembershipResponse(response));
+  app.post("/v1/auth/device/email/request", asyncRoute(async (request, response) => {
+    const broker = requireAuthentication(authentication, "email");
+    const body = exactObjectBody(request.body, ["email", "codeChallenge", "returnUri", "clientState", "deviceName", "attemptId"]);
+    const email = emailBody(body, "email");
+    await broker.consumeEmail("request", requestIp(request), email);
+    const existingAttemptId = optionalStringBody(body, "attemptId");
+    let attempt: { readonly attemptId: string; readonly expiresAt: string };
+    if (existingAttemptId) {
+      const existing = await store.getAccountLoginAttempt(existingAttemptId);
+      if (existing.method !== "email" || existing.emailDigest !== digestHex(email)) throw new Error("login-attempt-unavailable");
+      attempt = { attemptId: existing.attemptId, expiresAt: existing.expiresAt };
+    } else {
+      const returnUri = stringBody(body, "returnUri");
+      validateLoopbackReturnUri(returnUri);
+      const now = Date.now();
+      attempt = await store.createAccountLoginAttempt({ method: "email", returnUri, clientState: boundedValue(stringBody(body, "clientState"), "clientState", 200), codeChallenge: pkceValue(stringBody(body, "codeChallenge"), "codeChallenge"), deviceName: boundedValue(stringBody(body, "deviceName"), "deviceName", 120), email, expiresAt: new Date(now + 10 * 60 * 1000).toISOString(), createdAt: new Date(now).toISOString() });
+    }
+    await broker.requestEmailCode(email);
+    response.status(202).setHeader("cache-control", "no-store").json({ attemptId: attempt.attemptId, expiresAt: attempt.expiresAt, resendAfterSeconds: 60 });
+  }));
+
+  app.post("/v1/auth/device/email/verify", asyncRoute(async (request, response) => {
+    const broker = requireAuthentication(authentication, "email");
+    const body = exactObjectBody(request.body, ["attemptId", "email", "otp"]);
+    const email = emailBody(body, "email");
+    const otp = stringBody(body, "otp");
+    if (!/^\d{6}$/u.test(otp)) throw new AuthenticationBrokerError("authentication-failed");
+    await broker.consumeEmail("verify", requestIp(request), email);
+    const attemptId = stringBody(body, "attemptId");
+    const attempt = await store.getAccountLoginAttempt(attemptId);
+    if (attempt.method !== "email" || attempt.emailDigest !== digestHex(email)) throw new AuthenticationBrokerError("authentication-failed");
+    const user = await broker.verifyEmailCode(email, otp);
+    if (!user.emailVerified || user.email !== email) throw new AuthenticationBrokerError("authentication-failed");
+    const exchangeCode = randomBytes(32).toString("base64url");
+    await store.authenticateAccountLoginAttempt({ attemptId, expectedMethod: "email", authUserId: user.id, verifiedEmail: user.email, displayName: user.name, proofDigest: digestHex(exchangeCode) });
+    response.setHeader("cache-control", "no-store").json({ exchangeCode });
+  }));
+
+  app.post("/v1/auth/device/exchange", asyncRoute(async (request, response) => {
+    requireAuthentication(authentication);
+    const input = joinExchangeRequestSchema.parse(request.body);
+    const result = await store.redeemAccountLoginAttempt({ proofDigest: digestHex(input.exchangeCode), codeChallenge: digestBase64Url(input.codeVerifier), audience: config.publicBaseUrl, credentialExpiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString() });
+    response.setHeader("cache-control", "no-store").json({ server: config.publicBaseUrl, ...result });
+  }));
 
   app.get("/v1/session", requireAnyScope(store, config, ["account:access"]), asyncRoute(async (request, response) => {
     response.json(await requireAccountAuthenticationPersistence(store).getAccountSessionByCredential(requirePrincipal(request).credentialId));
@@ -338,7 +373,7 @@ export function createAgentFabricServer(config: ServerConfig, options: {
 
   app.post("/v1/friend-invitations", requireAnyScope(store, config, ["account:access"]), asyncRoute(async (request, response) => {
     const principal = requirePrincipal(request);
-    enforceLoginRateLimit(friendInvitationAttempts, principal.principalId, 20);
+    enforceLocalRateLimit(friendInvitationAttempts, principal.principalId, 20);
     const body = exactObjectBody(request.body, ["email", "expiresAt"]);
     const result = await requireHumanFriendshipManagementPersistence(store).createFriendInvitationForCredential(principal.credentialId, {
       email: emailBody(body, "email"), expiresAt: isoTimestampBody(body, "expiresAt"),
@@ -463,12 +498,14 @@ export function createAgentFabricServer(config: ServerConfig, options: {
   app.use((error: unknown, _request: Request, response: Response, _next: NextFunction) => {
     void _request;
     void _next;
-    const code = error instanceof Error ? (error.message.split(":")[0] ?? "internal-error") : "internal-error";
-    const status = code.includes("scope") || code.includes("denied") ? 403
+    const code = error instanceof AuthenticationBrokerError ? error.code : error instanceof Error ? (error.message.split(":")[0] ?? "internal-error") : "internal-error";
+    if (error instanceof AuthenticationBrokerError && error.retryAfterMs) response.setHeader("retry-after", Math.ceil(error.retryAfterMs / 1000));
+    const status = code.includes("unavailable") || code.includes("offline") ? 503
+      : code.includes("rate-limited") ? 429
+      : code.includes("scope") || code.includes("denied") ? 403
       : code.includes("credential") || code.includes("authentication") ? 401
         : code.includes("not-found") ? 404
-          : code.includes("offline") || code.includes("unavailable") ? 503
-            : 400;
+          : 400;
     response.status(status).json({ error: { code } });
   });
 
@@ -536,6 +573,7 @@ export function createAgentFabricServer(config: ServerConfig, options: {
     },
     async start() {
       await store.migrate();
+      await authentication?.initialize();
       await listen(httpServer, config.host, config.port);
       ready = true;
     },
@@ -543,6 +581,7 @@ export function createAgentFabricServer(config: ServerConfig, options: {
       ready = false;
       await closeServer(httpServer);
       webSockets.close();
+      await authentication?.close();
       await store.close();
     },
   };
@@ -569,9 +608,9 @@ async function observeLatestAccountRuntime(
   throw new Error("account-runtime-observation-failed");
 }
 
-function requireOidc(provider: OidcProvider | undefined): OidcProvider {
-  if (!provider) throw new Error("oidc-unavailable");
-  return provider;
+function requireAuthentication(authentication: AuthenticationBroker | undefined, capability?: "google" | "email"): AuthenticationBroker {
+  if (!authentication || (capability === "google" && !authentication.googleEnabled) || (capability === "email" && !authentication.emailOtpAvailable())) throw new AuthenticationBrokerError(capability === "email" ? "email-otp-unavailable" : "authentication-unavailable");
+  return authentication;
 }
 
 function validateLoopbackReturnUri(value: string): void {
@@ -622,18 +661,21 @@ function requirePrincipal(request: Request): RequestPrincipal {
   return principal;
 }
 
-function enforceLoginRateLimit(attempts: Map<string, { count: number; resetAt: number }>, key: string, limit: number): void {
-  const now = Date.now(); const current = attempts.get(key);
-  if (!current || current.resetAt <= now) { attempts.set(key, { count: 1, resetAt: now + 10 * 60 * 1000 }); return; }
-  if (current.count >= limit) throw new Error("login-rate-limit-denied");
-  current.count += 1;
-}
-
 function enforceSelfServiceIdentity(email: string, allowedDomains: readonly string[]): void {
   if (allowedDomains.length === 0) return;
   const domain = email.toLowerCase().split("@")[1];
   if (!domain || !allowedDomains.includes(domain)) throw new Error("self-service-identity-denied");
 }
+
+function enforceLocalRateLimit(attempts: Map<string, { count: number; resetAt: number }>, key: string, limit: number): void {
+  const now = Date.now(); const current = attempts.get(key);
+  if (!current || current.resetAt <= now) { attempts.set(key, { count: 1, resetAt: now + 10 * 60 * 1000 }); return; }
+  if (current.count >= limit) throw new Error("rate-limit-denied");
+  current.count += 1;
+}
+
+function digestHex(value: string): string { return createHash("sha256").update(value).digest("hex"); }
+function digestBase64Url(value: string): string { return createHash("sha256").update(value).digest("base64url"); }
 
 function bearerToken(value: string | undefined): string {
   if (!value?.startsWith("Bearer ")) throw new Error("credential-required");
@@ -654,6 +696,41 @@ function stringBody(body: unknown, field: string): string {
   const value = body && typeof body === "object" ? (body as Record<string, unknown>)[field] : undefined;
   if (typeof value !== "string" || !value.trim()) throw new Error(`invalid-field:${field}`);
   return value;
+}
+
+function optionalStringBody(body: unknown, field: string): string | undefined {
+  const value = body && typeof body === "object" ? (body as Record<string, unknown>)[field] : undefined;
+  if (value === undefined) return undefined;
+  if (typeof value !== "string" || !value.trim()) throw new Error(`invalid-field:${field}`);
+  return value;
+}
+
+function boundedValue(value: string, field: string, maximumLength: number): string {
+  const normalized = value.trim();
+  if (!normalized || normalized.length > maximumLength) throw new Error(`invalid-field:${field}`);
+  return normalized;
+}
+
+function pkceValue(value: string, field: string): string {
+  if (!/^[A-Za-z0-9_-]{43,128}$/u.test(value)) throw new Error(`invalid-field:${field}`);
+  return value;
+}
+
+function requestIp(request: Request): string { return request.ip ?? request.socket.remoteAddress ?? "unknown"; }
+
+function requestHeaders(request: Request): Headers {
+  const headers = new Headers();
+  for (const [name, value] of Object.entries(request.headers)) {
+    if (typeof value === "string") headers.set(name, value);
+    else if (Array.isArray(value)) for (const item of value) headers.append(name, item);
+  }
+  return headers;
+}
+
+function appendSetCookies(response: Response, headers: Headers): void {
+  const compatible = headers as Headers & { getSetCookie?: () => string[] };
+  const values = compatible.getSetCookie?.() ?? (headers.get("set-cookie") ? [headers.get("set-cookie") as string] : []);
+  for (const value of values) response.append("set-cookie", value);
 }
 
 function emailBody(body: unknown, field: string): string {

@@ -77,6 +77,8 @@ export interface AccountProductAuthenticatedSession {
 
 export interface AccountProductAuthenticationPort {
   login<T>(activate: (session: AccountProductAuthenticatedSession) => Promise<T>): Promise<T>;
+  requestEmailCode?(email: string): Promise<{ readonly expiresAt: string; readonly resendAfterSeconds: number }>;
+  loginEmail?<T>(email: string, otp: string, activate: (session: AccountProductAuthenticatedSession) => Promise<T>): Promise<T>;
   restore(): Promise<AccountProductAuthenticatedSession | undefined>;
   clear(options?: { readonly preserveCredential?: boolean }): Promise<void>;
 }
@@ -157,9 +159,14 @@ export class AccountProductHost {
   }
 
   async #execute(command: AccountProductRendererCommand): Promise<AccountProductRendererCommandResult> {
-    if (command.type === "login-start") {
+    if (command.type === "login-google" || command.type === "login-email-verify") {
       this.#replace({ ...this.#snapshot, session: { state: "signing-in" }, loading: true, errorCode: undefined });
-      try { return snapshotResult(await this.authentication.login((authenticated) => this.#hydrate(authenticated))); }
+      try {
+        const next = command.type === "login-google"
+          ? await this.authentication.login((authenticated) => this.#hydrate(authenticated))
+          : await requireEmailLogin(this.authentication).loginEmail(command.email, command.otp, (authenticated) => this.#hydrate(authenticated));
+        return snapshotResult(next);
+      }
       catch (error) {
         await this.authentication.clear().catch(() => undefined);
         this.#unsubscribeInvalidations?.();
@@ -169,6 +176,10 @@ export class AccountProductHost {
         this.#replace({ ...signedOutSnapshot("initial", false), errorCode: safeErrorCode(error) });
         throw new AccountProductHostError(safeErrorCode(error));
       }
+    }
+    if (command.type === "login-email-request") {
+      const challenge = await requireEmailLogin(this.authentication).requestEmailCode(command.email);
+      return accountProductRendererCommandResultSchema.parse({ type: "email-code-requested", ...challenge, snapshot: this.#snapshot });
     }
     if (command.type === "logout") {
       try { await this.options?.closeLocalBuilder?.(); await this.#authenticated?.client.logout(); }
@@ -646,6 +657,11 @@ function inactiveLocalServices(): AccountProductRendererSnapshot["localServices"
 
 function snapshotResult(snapshot: AccountProductRendererSnapshot): AccountProductRendererCommandResult {
   return accountProductRendererCommandResultSchema.parse({ type: "snapshot", snapshot });
+}
+
+function requireEmailLogin(authentication: AccountProductAuthenticationPort): Required<Pick<AccountProductAuthenticationPort, "requestEmailCode" | "loginEmail">> {
+  if (!authentication.requestEmailCode || !authentication.loginEmail) throw new AccountProductHostError("email-otp-unavailable");
+  return { requestEmailCode: authentication.requestEmailCode.bind(authentication), loginEmail: authentication.loginEmail.bind(authentication) };
 }
 
 function safeErrorCode(error: unknown): string {

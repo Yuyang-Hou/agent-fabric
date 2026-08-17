@@ -10,7 +10,6 @@ describe("Account resource invalidation WebSocket", () => {
     const store = {
       migrate: vi.fn(), close: vi.fn(),
       authenticate: vi.fn().mockResolvedValue({ credentialId: "credential:member", principalId: "device:member", ownerPrincipalId: "human:member", instanceId: "instance:one", scopes: ["account:access"] }),
-      createAccountMemberJoinSession: vi.fn(), redeemAccountMemberLoginSession: vi.fn(),
       getAccountSessionByCredential: vi.fn().mockResolvedValue({ sessionId: "session:one", credentialId: "credential:member", accountId: "account:one", userId: "human:member", displayName: "Member", email: "member@example.com", role: "member", createdAt: "2026-08-13T00:00:00.000Z", expiresAt: "2026-09-13T00:00:00.000Z", lastSeenAt: "2026-08-13T00:00:00.000Z" }),
     } as unknown as PersistenceStore;
     const base = loadServerConfig({ AGENT_FABRIC_PUBLIC_BASE_URL: "http://127.0.0.1:8787", AGENT_FABRIC_DATABASE_DRIVER: "mysql", DATABASE_URL: "mysql://unused:unused@localhost/unused" });

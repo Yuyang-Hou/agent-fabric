@@ -35,9 +35,9 @@ export const joinExchangeRequestSchema = z.strictObject({
   codeVerifier: z.string().regex(/^[A-Za-z0-9._~-]{43,128}$/u),
 });
 
-export const ownerLoginStartRequestSchema = joinStartRequestSchema.omit({ invitationToken: true });
-export const ownerLoginExchangeRequestSchema = joinExchangeRequestSchema;
-export const ownerLoginExchangeResponseSchema = z.strictObject({
+export const deviceLoginStartRequestSchema = joinStartRequestSchema.omit({ invitationToken: true });
+export const deviceLoginExchangeRequestSchema = joinExchangeRequestSchema;
+export const deviceLoginExchangeResponseSchema = z.strictObject({
   server: z.url(),
   token: boundedText(512),
   humanPrincipalId: identifier,
@@ -47,15 +47,27 @@ export const ownerLoginExchangeResponseSchema = z.strictObject({
   expiresAt: isoDate,
 });
 
+export const emailLoginCodeRequestSchema = deviceLoginStartRequestSchema.extend({
+  email: z.email().max(320),
+  attemptId: identifier.optional(),
+});
+export const emailLoginCodeResponseSchema = z.strictObject({ attemptId: identifier, expiresAt: isoDate, resendAfterSeconds: z.number().int().min(1).max(3600) });
+export const emailLoginVerifyRequestSchema = z.strictObject({ attemptId: identifier, email: z.email().max(320), otp: z.string().regex(/^\d{6}$/u) });
+export const emailLoginVerifyResponseSchema = z.strictObject({ exchangeCode: boundedText(512) });
+
 export type ComponentVersion = z.infer<typeof componentVersionSchema>;
 export type CredentialScope = z.infer<typeof credentialScopeSchema>;
 export type PrincipalKind = z.infer<typeof principalKindSchema>;
 export type JoinStartRequest = z.infer<typeof joinStartRequestSchema>;
 export type JoinStartResponse = z.infer<typeof joinStartResponseSchema>;
 export type JoinExchangeRequest = z.infer<typeof joinExchangeRequestSchema>;
-export type OwnerLoginStartRequest = z.infer<typeof ownerLoginStartRequestSchema>;
-export type OwnerLoginExchangeRequest = z.infer<typeof ownerLoginExchangeRequestSchema>;
-export type OwnerLoginExchangeResponse = z.infer<typeof ownerLoginExchangeResponseSchema>;
+export type DeviceLoginStartRequest = z.infer<typeof deviceLoginStartRequestSchema>;
+export type DeviceLoginExchangeRequest = z.infer<typeof deviceLoginExchangeRequestSchema>;
+export type DeviceLoginExchangeResponse = z.infer<typeof deviceLoginExchangeResponseSchema>;
+export type EmailLoginCodeRequest = z.infer<typeof emailLoginCodeRequestSchema>;
+export type EmailLoginCodeResponse = z.infer<typeof emailLoginCodeResponseSchema>;
+export type EmailLoginVerifyRequest = z.infer<typeof emailLoginVerifyRequestSchema>;
+export type EmailLoginVerifyResponse = z.infer<typeof emailLoginVerifyResponseSchema>;
 
 export function assertCompatible(local: ComponentVersion, remote: ComponentVersion): void {
   if (local.protocolMajor !== remote.protocolMajor || local.a2aVersion !== remote.a2aVersion) {

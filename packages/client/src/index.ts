@@ -2,9 +2,11 @@ import {
   componentVersionSchema,
   assertCompatible,
   type ComponentVersion,
-  type JoinStartResponse,
-  type OwnerLoginExchangeResponse,
-  type OwnerLoginStartRequest,
+  type DeviceLoginExchangeResponse,
+  type DeviceLoginStartRequest,
+  type EmailLoginCodeRequest,
+  type EmailLoginCodeResponse,
+  type EmailLoginVerifyResponse,
 } from "@agent-fabric/fabric-contracts";
 import { ClientFactory, DefaultAgentCardResolver, RestTransportFactory } from "@a2a-js/sdk/client";
 import { Message, Role, TaskState, type Task } from "@a2a-js/sdk";
@@ -352,12 +354,22 @@ export class AgentFabricClient {
     return (await this.#request<{ readonly templates: readonly AgentTemplate[] }>("GET", "/v1/agent-templates")).templates;
   }
 
-  async startLogin(input: OwnerLoginStartRequest): Promise<JoinStartResponse> {
-    return this.#request("POST", "/v1/auth/login/start", input, false);
+  googleLoginUrl(input: DeviceLoginStartRequest): string {
+    const url = new URL("/v1/auth/device/google/start", this.baseUrl);
+    url.search = new URLSearchParams(input).toString();
+    return url.toString();
   }
 
-  async exchangeLogin(exchangeCode: string, codeVerifier: string): Promise<OwnerLoginExchangeResponse> {
-    return this.#request("POST", "/v1/auth/login/exchange", { exchangeCode, codeVerifier }, false);
+  async requestEmailLoginCode(input: EmailLoginCodeRequest): Promise<EmailLoginCodeResponse> {
+    return this.#request("POST", "/v1/auth/device/email/request", input, false);
+  }
+
+  async verifyEmailLoginCode(attemptId: string, email: string, otp: string): Promise<EmailLoginVerifyResponse> {
+    return this.#request("POST", "/v1/auth/device/email/verify", { attemptId, email, otp }, false);
+  }
+
+  async exchangeDeviceLogin(exchangeCode: string, codeVerifier: string): Promise<DeviceLoginExchangeResponse> {
+    return this.#request("POST", "/v1/auth/device/exchange", { exchangeCode, codeVerifier }, false);
   }
 
   async logout(): Promise<{ readonly status: "logged_out" }> {

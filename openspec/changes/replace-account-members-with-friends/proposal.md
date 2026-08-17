@@ -10,7 +10,8 @@
 - **BREAKING**：Desktop 主导航“成员”改为“好友”，删除成员/管理员角色、角色编辑、成员资源转移和加入他人 Account 的产品行为。
 - **BREAKING**：全量下线 Agent 草稿能力。AI Builder 改为 Desktop/Edge 内的纯本地一次性会话，进入、输入、Runtime 选择、多轮推理和预览均不得调用 Cloud Builder/草稿接口，也不跨离开或重启恢复。
 - AI Builder 直接调用 Owner 选择的本机 Runtime；只有用户点击“创建智能体”且本地校验通过后，Desktop 才向 Account Server 发起一次完整 Agent 创建请求，并在成功后进入 Agent 详情。
-- 每位 Google Human 始终登录自己的个人 Account；好友不会加入、拥有或管理对方 Account、Agent、Runtime、Skill、配置、凭据或活动。
+- 每位通过 Google OIDC 或普通邮箱一次性验证码验证的 Human 始终登录同一个个人 Account；好友不会加入、拥有或管理对方 Account、Agent、Runtime、Skill、配置、凭据或活动。
+- 增加普通邮箱登录：用户输入邮箱后接收 6 位一次性验证码并完成登录，不引入密码。认证优先复用经审计的开源能力，Google 与邮箱验证码统一映射到一个 Human 身份。
 - 增加 Human 级好友邀请收件箱：邀请人按邮箱创建无角色邀请；被邀请人登录自己的 Account 后可查看邀请记录，并明确接受或拒绝；邀请人可查看和撤销待处理邀请。
 - 接受邀请后创建唯一、双向、可撤销的 Human Friendship；拒绝、过期、撤销、自邀、重复和并发接受均使用显式且防枚举的状态转换。
 - Agent 访问模式在首期收敛为“仅自己”与“好友可访问”。只有有效好友可以发现和调用 Owner 明确开放的 Agent；删除好友或关闭访问后，未来发现、调用和 Task 读取立即被拒绝。
@@ -29,7 +30,7 @@
 ### Modified Capabilities
 
 - `product-authority`: 当前产品权威从 Account 成员协作切换为个人 Account、Human 好友和好友开放 Agent。
-- `account-authentication`: Google 登录始终恢复或创建当前 Human 的个人 Account，不再通过邀请加入他人 Account。
+- `account-authentication`: Google OIDC 与普通邮箱一次性验证码登录始终恢复或创建当前 Human 的同一个个人 Account，不再通过邀请加入他人 Account。
 - `account-members`: 移除成员、角色、成员邀请、角色变更和成员资源转移产品能力，只保留迁移兼容边界。
 - `agent-catalog`: Desktop 目录同时展示自己管理的 Agent 与好友开放的只读 Agent，并清楚区分管理权和调用权。
 - `agent-creation`: 只有个人 Account Owner 可以创建 Agent；AI Builder 使用纯本地一次性会话，并只在最终创建时提交一次完整配置。
@@ -45,7 +46,8 @@
 - Product authority / docs：`openspec/CURRENT.md`、根规格、`ARCHITECTURE.md`、README、Desktop PRODUCT/DESIGN、默认产品配置和发布 Gate。
 - Domain / persistence：Account session、成员/邀请 schema、Human Friendship、新邀请表、Agent 访问模式、跨 Account A2A Task origin、迁移与审计事件；AgentDraft 运行时模型和持久化路径退出，旧表与历史数据按可回滚方案保留后再另行清理。
 - Account Server APIs：新增好友邀请/好友查询与状态转换 API；移除默认成员、角色、资源转移及 `/v1/agent-drafts*` API；失效通知从 Account-only 扩展为精确 Human/Friendship 事件。
-- Desktop：Renderer Snapshot、IPC、Host、导航、好友收发邀请、好友列表、Agent 目录分区、只读好友 Agent 详情和访问设置；Builder 状态改为本地内存并直接通过 Edge 调用 Runtime。
+- Authentication：使用 Better Auth 统一承载 Google OIDC、邮箱验证码、临时认证会话与账号关联；使用 Nodemailer 发送 SMTP 邮件，使用 rate-limiter-flexible 实施邮箱与来源地址双维度限流。当前产品未开放使用，直接切换到新认证数据模型，不做历史账号迁移、双读或旧登录接口兼容。
+- Desktop：Renderer Snapshot、IPC、Host、Google/邮箱验证码登录、导航、好友收发邀请、好友列表、Agent 目录分区、只读好友 Agent 详情和访问设置；Builder 状态改为本地内存并直接通过 Edge 调用 Runtime。
 - MCP / A2A：保留四工具与标准 A2A v1.0.1，改造 Agent discovery、send、Task read 和删除好友/关闭访问后的即时拒绝。
 - Edge Host / Runtime Adapter：增加本地 Builder 一次性会话执行，保留每 Agent/Builder 会话隔离；不向 Cloud、好友或 Renderer 暴露 Runtime session ID、cwd、凭据、私有上下文或管理端口。
 - 非目标：Builder 草稿保存或恢复、Cloud Builder 编排、App 内聊天、Human 消息、群组/共同 Account、角色、指定好友列表、公共发现、跨账号资源转移、好友 Runtime 访问、Cloud Runtime、移动端、Marketplace 和兼容历史好友专用 MCP 工具。

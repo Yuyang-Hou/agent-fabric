@@ -17,7 +17,7 @@ const collectionTableFeatures = tableFeatures({ rowSelectionFeature });
 export interface AccountProductBridge {
   getSnapshot(): AccountProductRendererSnapshot;
   subscribe(listener: () => void): () => void;
-  command(command: AccountProductRendererCommand): Promise<void>;
+  command(command: AccountProductRendererCommand): Promise<import("./ipc.js").AccountProductRendererCommandResult>;
 }
 
 export function createAccountProductBridge(api: ElectronAccountProductApi): AccountProductBridge {
@@ -33,6 +33,7 @@ export function createAccountProductBridge(api: ElectronAccountProductApi): Acco
       const result = await api.command(command);
       snapshot = result.snapshot;
       emit();
+      return result;
     },
   };
 }
@@ -42,13 +43,13 @@ export function AccountProductApp({ bridge }: { readonly bridge: AccountProductB
   const [busy, setBusy] = useState<AccountProductRendererCommand["type"]>();
   const run = async (command: AccountProductRendererCommand) => {
     setBusy(command.type);
-    try { await bridge.command(command); return true; }
+    try { return await bridge.command(command); }
     catch (error) { toast.error(errorMessage(error), { id: "account-operation" }); return false; }
     finally { setBusy(undefined); }
   };
 
   if (snapshot.loading && snapshot.session.state !== "signing-in") return <><BootstrapScreen /><Toaster position="top-right" /></>;
-  if (snapshot.session.state !== "signed-in") return <><LoginScreen snapshot={snapshot} busy={busy === "login-start" || snapshot.session.state === "signing-in"} onLogin={() => void run({ type: "login-start" })} /><Toaster position="top-right" /></>;
+  if (snapshot.session.state !== "signed-in") return <><LoginScreen snapshot={snapshot} operation={busy} run={run} /><Toaster position="top-right" /></>;
 
   const nav = (name: "agents" | "runtimes" | "friends") => void run({ type: "navigate", route: { name } });
   const root = routeRoot(snapshot.route.name);
@@ -289,10 +290,10 @@ function AgentSettings({ snapshot, detail, busy, run, onDirtyChange, registerSav
   const dirty = name !== detail.identity.name || description !== detail.identity.description || runtimeId !== (detail.identity.runtimeId ?? "") || permissionMode !== detail.access.permissionMode || instructions !== (detail.configuration.instructions ?? "") || model !== (detail.configuration.model ?? "") || thinkingLevel !== (detail.configuration.thinkingLevel ?? "medium") || serviceTier !== (detail.configuration.serviceTier ?? "default") || maxConcurrentTasks !== detail.configuration.maxConcurrentTasks;
   const save = async () => {
     if (!name.trim()) return false;
-    return run({ type: "agent-update", agentId: detail.identity.agentId, expectedVersion: detail.identity.version, update: {
+    return Boolean(await run({ type: "agent-update", agentId: detail.identity.agentId, expectedVersion: detail.identity.version, update: {
       name, description, ...(detail.identity.avatarUrl ? { avatarUrl: detail.identity.avatarUrl } : {}), ...(runtimeId ? { runtimeId } : {}), permissionMode,
       configuration: { instructions, model: model || null, thinkingLevel: runtime?.capabilities.supportsThinkingLevel ? thinkingLevel : null, serviceTier: runtime?.capabilities.supportsServiceTier ? serviceTier : null, maxConcurrentTasks },
-    } });
+    } }));
   };
   useEffect(() => { onDirtyChange(dirty); return () => onDirtyChange(false); }, [dirty]);
   useEffect(() => { registerSave(save); return () => registerSave(undefined); });
@@ -422,7 +423,23 @@ function ImpactDialog({ title, description, confirm, busy, onCancel, onConfirm }
 function DirtyGuardDialog({ busy, onCancel, onDiscard, onSave }: { readonly busy: boolean; readonly onCancel: () => void; readonly onDiscard: () => void; readonly onSave: () => void }) { return <FabricDialog open onOpenChange={(open) => { if (!open) onCancel(); }} role="alertdialog" ariaLabelledBy="dirty-title" ariaDescribedBy="dirty-description" popupClassName="impact-dialog"><span className="impact-icon is-neutral"><CircleAlert aria-hidden="true" /></span><h2 id="dirty-title">保存设置修改？</h2><p id="dirty-description">离开此页面前，可以保存修改、放弃修改或继续编辑。</p><div><FabricButton autoFocus onClick={onCancel}>继续编辑</FabricButton><FabricButton tone="quiet" onClick={onDiscard}>放弃修改</FabricButton><FabricButton tone="primary" loading={busy} onClick={onSave}>保存并继续</FabricButton></div></FabricDialog>; }
 function MigrationNotice({ snapshot, run }: { readonly snapshot: AccountProductRendererSnapshot; readonly run: ViewProps["run"] }) { const recovery = snapshot.legacyRecovery; if (recovery.state !== "needs_attention") return null; const complete = () => void run({ type: "legacy-recovery-complete", backupId: recovery.backupId, acknowledgedFields: recovery.unmappedPrivateFields }); return <div className="migration-notice" role="status"><CircleAlert aria-hidden="true" /><span><strong>旧 Agent 已迁移</strong><small>部分私有字段留在本机备份，需要你确认后继续。</small></span><FabricButton tone="quiet" onClick={complete}>确认迁移结果</FabricButton></div>; }
 function BootstrapScreen() { return <main className="bootstrap-screen"><span className="brand-symbol"><AgentFabricMark aria-hidden="true" /></span><div><h1>Agent Fabric</h1><p>正在恢复 Account、Runtime 与智能体目录…</p></div><LoadingRows count={3} /></main>; }
-function LoginScreen({ snapshot, busy, onLogin }: { readonly snapshot: AccountProductRendererSnapshot; readonly busy: boolean; readonly onLogin: () => void }) { return <main className="login-screen"><section className="login-panel"><span className="brand-symbol"><AgentFabricMark aria-hidden="true" /></span><h1>登录 Agent Fabric</h1><p>管理你的智能体与 Runtime，并通过好友关系共享可访问的智能体。</p><FabricButton tone="primary" loading={busy} onClick={onLogin}><LogIn aria-hidden="true" />{busy ? "正在完成登录" : "使用 Google 登录"}</FabricButton><small><KeyRound aria-hidden="true" />登录在系统浏览器完成，App 不接收 Google 密码。</small>{snapshot.errorCode && <div className="login-error" role="alert"><CircleAlert aria-hidden="true" /><span>{loginErrorMessage(snapshot.errorCode)}</span></div>}</section><div className="login-foot">Agent Fabric · 本地 Runtime 与私有凭据留在这台设备</div></main>; }
+function LoginScreen({ snapshot, operation, run }: { readonly snapshot: AccountProductRendererSnapshot; readonly operation: AccountProductRendererCommand["type"] | undefined; readonly run: (command: AccountProductRendererCommand) => Promise<import("./ipc.js").AccountProductRendererCommandResult | false> }) {
+  const [email, setEmail] = useState("");
+  const [otp, setOtp] = useState("");
+  const [verification, setVerification] = useState(false);
+  const [resendAt, setResendAt] = useState(0);
+  const [, tick] = useState(0);
+  const busy = Boolean(operation?.startsWith("login-")) || snapshot.session.state === "signing-in";
+  useEffect(() => { if (!verification || resendAt <= Date.now()) return; const timer = window.setInterval(() => tick((value) => value + 1), 1_000); return () => window.clearInterval(timer); }, [verification, resendAt]);
+  const remaining = Math.max(0, Math.ceil((resendAt - Date.now()) / 1_000));
+  const requestCode = async () => {
+    const result = await run({ type: "login-email-request", email: email.trim().toLowerCase() });
+    if (!result || result.type !== "email-code-requested") return;
+    setVerification(true); setResendAt(Date.now() + result.resendAfterSeconds * 1_000); setOtp("");
+  };
+  const submit = (event: FormEvent) => { event.preventDefault(); if (verification) void run({ type: "login-email-verify", email: email.trim().toLowerCase(), otp }); else void requestCode(); };
+  return <main className="login-screen"><section className="login-panel"><span className="brand-symbol"><AgentFabricMark aria-hidden="true" /></span><h1>登录 Agent Fabric</h1><p>{verification ? `验证码已发送至 ${email}` : "输入邮箱以获取登录验证码"}</p><form onSubmit={submit} className="login-form">{verification ? <><label htmlFor="login-otp">六位验证码</label><input id="login-otp" inputMode="numeric" autoComplete="one-time-code" autoFocus maxLength={6} pattern="[0-9]{6}" value={otp} onChange={(event) => setOtp(event.target.value.replace(/\D/gu, "").slice(0, 6))} disabled={busy} /><FabricButton tone="primary" loading={busy} disabled={otp.length !== 6} onClick={() => void run({ type: "login-email-verify", email: email.trim().toLowerCase(), otp })}>{busy ? "正在验证" : "继续"}</FabricButton><div className="login-code-actions"><button type="button" onClick={() => { setVerification(false); setOtp(""); }} disabled={busy}>返回</button><button type="button" onClick={() => void requestCode()} disabled={busy || remaining > 0}>{remaining > 0 ? `${remaining} 秒后重发` : "重新发送"}</button></div></> : <><label htmlFor="login-email">邮箱</label><input id="login-email" type="email" autoComplete="email" autoFocus required placeholder="you@example.com" value={email} onChange={(event) => setEmail(event.target.value)} disabled={busy} /><FabricButton tone="primary" loading={operation === "login-email-request"} onClick={() => void requestCode()}>{operation === "login-email-request" ? "正在发送" : "继续"}</FabricButton></>}</form><div className="login-divider"><span>或</span></div><FabricButton loading={operation === "login-google" || snapshot.session.state === "signing-in"} onClick={() => void run({ type: "login-google" })}><LogIn aria-hidden="true" />{operation === "login-google" || snapshot.session.state === "signing-in" ? "正在完成登录" : "使用 Google 登录"}</FabricButton><small><KeyRound aria-hidden="true" />验证码与第三方登录会话仅在认证过程中短暂使用。</small>{snapshot.errorCode && <div className="login-error" role="alert"><CircleAlert aria-hidden="true" /><span>{loginErrorMessage(snapshot.errorCode)}</span></div>}</section><div className="login-foot">Agent Fabric · 本地 Runtime 与私有凭据留在这台设备</div></main>;
+}
 
 function loginErrorMessage(code: string): string {
   if (code === "http-404") return "服务版本不兼容，请升级服务后重试。";
@@ -430,15 +447,17 @@ function loginErrorMessage(code: string): string {
   if (code === "login-cancelled" || code === "login_cancelled") return "登录已取消，你可以重新登录。";
   if (code === "login-callback-timeout") return "登录等待已超时，请重新发起登录。";
   if (code === "login-callback-invalid") return "登录回调无效，请关闭浏览器页面后重试。";
-  if (code === "login-exchange-failed") return "Google 登录结果无法完成验证，请重试。";
+  if (code === "login-exchange-failed") return "登录信息无法完成验证，请重新获取验证码或重试 Google 登录。";
+  if (code === "email-otp-unavailable") return "邮箱验证码登录暂不可用，你仍可尝试 Google 登录。";
   if (code === "login-session-invalid") return "账号会话未能建立，请重试；持续失败请更新 App。";
   if (code === "login-cloud-incompatible") return "Cloud 版本与当前 App 不兼容，请等待服务更新后重试。";
+  if (code === "login-method-unavailable") return "当前服务未启用这种登录方式，请选择另一种方式或联系服务管理员。";
   if (code === "login-bootstrap-failed") return "账号已验证，但首屏数据加载失败，请重试。";
   if (code === "login-secure-storage-failed") return "无法安全保存登录状态，请检查系统钥匙串后重试。";
   return "登录未完成，请重试。";
 }
 
-interface ViewProps { readonly snapshot: AccountProductRendererSnapshot; readonly busy: AccountProductRendererCommand["type"] | undefined; readonly run: (command: AccountProductRendererCommand) => Promise<boolean> }
+interface ViewProps { readonly snapshot: AccountProductRendererSnapshot; readonly busy: AccountProductRendererCommand["type"] | undefined; readonly run: (command: AccountProductRendererCommand) => Promise<import("./ipc.js").AccountProductRendererCommandResult | false> }
 function initialSnapshot(): AccountProductRendererSnapshot { return { session: { state: "signed-out", reason: "initial" }, route: { name: "agents" }, connection: "offline", localServices: { runtime: { state: "inactive" }, mcp: { state: "inactive" } }, activities: [], templates: [], runtimes: [], friends: [], incomingFriendInvitations: [], outgoingFriendInvitations: [], legacyRecovery: { state: "not_required" }, loading: true, refreshing: false }; }
 function routeRoot(name: AccountProductRendererSnapshot["route"]["name"]): "agents" | "runtimes" | "friends" { return name.startsWith("agent") ? "agents" : name.startsWith("runtime") ? "runtimes" : "friends"; }
 function scopeLabel(value: "mine" | "friends" | "archived") { return value === "mine" ? "我的" : value === "friends" ? "好友开放" : "已归档"; }

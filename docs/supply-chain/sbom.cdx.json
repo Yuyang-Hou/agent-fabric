@@ -492,6 +492,206 @@
     },
     {
       "type": "library",
+      "name": "@better-auth/core",
+      "version": "1.6.29",
+      "bom-ref": "pkg:npm/%40better-auth/core@1.6.29",
+      "purl": "pkg:npm/%40better-auth/core@1.6.29",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "agent-fabric:replacement-boundary",
+          "value": "Transitive dependency behind a registered direct package boundary"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@better-auth/drizzle-adapter",
+      "version": "1.6.29",
+      "bom-ref": "pkg:npm/%40better-auth/drizzle-adapter@1.6.29",
+      "purl": "pkg:npm/%40better-auth/drizzle-adapter@1.6.29",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "agent-fabric:replacement-boundary",
+          "value": "Transitive dependency behind a registered direct package boundary"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@better-auth/kysely-adapter",
+      "version": "1.6.29",
+      "bom-ref": "pkg:npm/%40better-auth/kysely-adapter@1.6.29",
+      "purl": "pkg:npm/%40better-auth/kysely-adapter@1.6.29",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "agent-fabric:replacement-boundary",
+          "value": "Transitive dependency behind a registered direct package boundary"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@better-auth/memory-adapter",
+      "version": "1.6.29",
+      "bom-ref": "pkg:npm/%40better-auth/memory-adapter@1.6.29",
+      "purl": "pkg:npm/%40better-auth/memory-adapter@1.6.29",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "agent-fabric:replacement-boundary",
+          "value": "Transitive dependency behind a registered direct package boundary"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@better-auth/mongo-adapter",
+      "version": "1.6.29",
+      "bom-ref": "pkg:npm/%40better-auth/mongo-adapter@1.6.29",
+      "purl": "pkg:npm/%40better-auth/mongo-adapter@1.6.29",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "agent-fabric:replacement-boundary",
+          "value": "Transitive dependency behind a registered direct package boundary"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@better-auth/prisma-adapter",
+      "version": "1.6.29",
+      "bom-ref": "pkg:npm/%40better-auth/prisma-adapter@1.6.29",
+      "purl": "pkg:npm/%40better-auth/prisma-adapter@1.6.29",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "agent-fabric:replacement-boundary",
+          "value": "Transitive dependency behind a registered direct package boundary"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@better-auth/telemetry",
+      "version": "1.6.29",
+      "bom-ref": "pkg:npm/%40better-auth/telemetry@1.6.29",
+      "purl": "pkg:npm/%40better-auth/telemetry@1.6.29",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "agent-fabric:replacement-boundary",
+          "value": "Transitive dependency behind a registered direct package boundary"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@better-auth/utils",
+      "version": "0.4.2",
+      "bom-ref": "pkg:npm/%40better-auth/utils@0.4.2",
+      "purl": "pkg:npm/%40better-auth/utils@0.4.2",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "agent-fabric:replacement-boundary",
+          "value": "Transitive dependency behind a registered direct package boundary"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@better-auth/utils",
+      "version": "0.5.0",
+      "bom-ref": "pkg:npm/%40better-auth/utils@0.5.0",
+      "purl": "pkg:npm/%40better-auth/utils@0.5.0",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "agent-fabric:replacement-boundary",
+          "value": "Transitive dependency behind a registered direct package boundary"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@better-fetch/fetch",
+      "version": "1.3.1",
+      "bom-ref": "pkg:npm/%40better-fetch/fetch@1.3.1",
+      "purl": "pkg:npm/%40better-fetch/fetch@1.3.1",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "agent-fabric:replacement-boundary",
+          "value": "Transitive dependency behind a registered direct package boundary"
+        }
+      ]
+    },
+    {
+      "type": "library",
       "name": "@electron-internal/extract-zip",
       "version": "1.0.5",
       "bom-ref": "pkg:npm/%40electron-internal/extract-zip@1.0.5",
@@ -692,166 +892,6 @@
     },
     {
       "type": "library",
-      "name": "@esbuild/aix-ppc64",
-      "version": "0.25.12",
-      "bom-ref": "pkg:npm/%40esbuild/aix-ppc64@0.25.12",
-      "purl": "pkg:npm/%40esbuild/aix-ppc64@0.25.12",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@esbuild/aix-ppc64",
-      "version": "0.28.1",
-      "bom-ref": "pkg:npm/%40esbuild/aix-ppc64@0.28.1",
-      "purl": "pkg:npm/%40esbuild/aix-ppc64@0.28.1",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@esbuild/android-arm",
-      "version": "0.25.12",
-      "bom-ref": "pkg:npm/%40esbuild/android-arm@0.25.12",
-      "purl": "pkg:npm/%40esbuild/android-arm@0.25.12",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@esbuild/android-arm",
-      "version": "0.28.1",
-      "bom-ref": "pkg:npm/%40esbuild/android-arm@0.28.1",
-      "purl": "pkg:npm/%40esbuild/android-arm@0.28.1",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@esbuild/android-arm64",
-      "version": "0.25.12",
-      "bom-ref": "pkg:npm/%40esbuild/android-arm64@0.25.12",
-      "purl": "pkg:npm/%40esbuild/android-arm64@0.25.12",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@esbuild/android-arm64",
-      "version": "0.28.1",
-      "bom-ref": "pkg:npm/%40esbuild/android-arm64@0.28.1",
-      "purl": "pkg:npm/%40esbuild/android-arm64@0.28.1",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@esbuild/android-x64",
-      "version": "0.25.12",
-      "bom-ref": "pkg:npm/%40esbuild/android-x64@0.25.12",
-      "purl": "pkg:npm/%40esbuild/android-x64@0.25.12",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@esbuild/android-x64",
-      "version": "0.28.1",
-      "bom-ref": "pkg:npm/%40esbuild/android-x64@0.28.1",
-      "purl": "pkg:npm/%40esbuild/android-x64@0.28.1",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
       "name": "@esbuild/darwin-arm64",
       "version": "0.25.12",
       "bom-ref": "pkg:npm/%40esbuild/darwin-arm64@0.25.12",
@@ -876,846 +916,6 @@
       "version": "0.28.1",
       "bom-ref": "pkg:npm/%40esbuild/darwin-arm64@0.28.1",
       "purl": "pkg:npm/%40esbuild/darwin-arm64@0.28.1",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@esbuild/darwin-x64",
-      "version": "0.25.12",
-      "bom-ref": "pkg:npm/%40esbuild/darwin-x64@0.25.12",
-      "purl": "pkg:npm/%40esbuild/darwin-x64@0.25.12",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@esbuild/darwin-x64",
-      "version": "0.28.1",
-      "bom-ref": "pkg:npm/%40esbuild/darwin-x64@0.28.1",
-      "purl": "pkg:npm/%40esbuild/darwin-x64@0.28.1",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@esbuild/freebsd-arm64",
-      "version": "0.25.12",
-      "bom-ref": "pkg:npm/%40esbuild/freebsd-arm64@0.25.12",
-      "purl": "pkg:npm/%40esbuild/freebsd-arm64@0.25.12",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@esbuild/freebsd-arm64",
-      "version": "0.28.1",
-      "bom-ref": "pkg:npm/%40esbuild/freebsd-arm64@0.28.1",
-      "purl": "pkg:npm/%40esbuild/freebsd-arm64@0.28.1",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@esbuild/freebsd-x64",
-      "version": "0.25.12",
-      "bom-ref": "pkg:npm/%40esbuild/freebsd-x64@0.25.12",
-      "purl": "pkg:npm/%40esbuild/freebsd-x64@0.25.12",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@esbuild/freebsd-x64",
-      "version": "0.28.1",
-      "bom-ref": "pkg:npm/%40esbuild/freebsd-x64@0.28.1",
-      "purl": "pkg:npm/%40esbuild/freebsd-x64@0.28.1",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@esbuild/linux-arm",
-      "version": "0.25.12",
-      "bom-ref": "pkg:npm/%40esbuild/linux-arm@0.25.12",
-      "purl": "pkg:npm/%40esbuild/linux-arm@0.25.12",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@esbuild/linux-arm",
-      "version": "0.28.1",
-      "bom-ref": "pkg:npm/%40esbuild/linux-arm@0.28.1",
-      "purl": "pkg:npm/%40esbuild/linux-arm@0.28.1",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@esbuild/linux-arm64",
-      "version": "0.25.12",
-      "bom-ref": "pkg:npm/%40esbuild/linux-arm64@0.25.12",
-      "purl": "pkg:npm/%40esbuild/linux-arm64@0.25.12",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@esbuild/linux-arm64",
-      "version": "0.28.1",
-      "bom-ref": "pkg:npm/%40esbuild/linux-arm64@0.28.1",
-      "purl": "pkg:npm/%40esbuild/linux-arm64@0.28.1",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@esbuild/linux-ia32",
-      "version": "0.25.12",
-      "bom-ref": "pkg:npm/%40esbuild/linux-ia32@0.25.12",
-      "purl": "pkg:npm/%40esbuild/linux-ia32@0.25.12",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@esbuild/linux-ia32",
-      "version": "0.28.1",
-      "bom-ref": "pkg:npm/%40esbuild/linux-ia32@0.28.1",
-      "purl": "pkg:npm/%40esbuild/linux-ia32@0.28.1",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@esbuild/linux-loong64",
-      "version": "0.25.12",
-      "bom-ref": "pkg:npm/%40esbuild/linux-loong64@0.25.12",
-      "purl": "pkg:npm/%40esbuild/linux-loong64@0.25.12",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@esbuild/linux-loong64",
-      "version": "0.28.1",
-      "bom-ref": "pkg:npm/%40esbuild/linux-loong64@0.28.1",
-      "purl": "pkg:npm/%40esbuild/linux-loong64@0.28.1",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@esbuild/linux-mips64el",
-      "version": "0.25.12",
-      "bom-ref": "pkg:npm/%40esbuild/linux-mips64el@0.25.12",
-      "purl": "pkg:npm/%40esbuild/linux-mips64el@0.25.12",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@esbuild/linux-mips64el",
-      "version": "0.28.1",
-      "bom-ref": "pkg:npm/%40esbuild/linux-mips64el@0.28.1",
-      "purl": "pkg:npm/%40esbuild/linux-mips64el@0.28.1",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@esbuild/linux-ppc64",
-      "version": "0.25.12",
-      "bom-ref": "pkg:npm/%40esbuild/linux-ppc64@0.25.12",
-      "purl": "pkg:npm/%40esbuild/linux-ppc64@0.25.12",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@esbuild/linux-ppc64",
-      "version": "0.28.1",
-      "bom-ref": "pkg:npm/%40esbuild/linux-ppc64@0.28.1",
-      "purl": "pkg:npm/%40esbuild/linux-ppc64@0.28.1",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@esbuild/linux-riscv64",
-      "version": "0.25.12",
-      "bom-ref": "pkg:npm/%40esbuild/linux-riscv64@0.25.12",
-      "purl": "pkg:npm/%40esbuild/linux-riscv64@0.25.12",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@esbuild/linux-riscv64",
-      "version": "0.28.1",
-      "bom-ref": "pkg:npm/%40esbuild/linux-riscv64@0.28.1",
-      "purl": "pkg:npm/%40esbuild/linux-riscv64@0.28.1",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@esbuild/linux-s390x",
-      "version": "0.25.12",
-      "bom-ref": "pkg:npm/%40esbuild/linux-s390x@0.25.12",
-      "purl": "pkg:npm/%40esbuild/linux-s390x@0.25.12",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@esbuild/linux-s390x",
-      "version": "0.28.1",
-      "bom-ref": "pkg:npm/%40esbuild/linux-s390x@0.28.1",
-      "purl": "pkg:npm/%40esbuild/linux-s390x@0.28.1",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@esbuild/linux-x64",
-      "version": "0.25.12",
-      "bom-ref": "pkg:npm/%40esbuild/linux-x64@0.25.12",
-      "purl": "pkg:npm/%40esbuild/linux-x64@0.25.12",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@esbuild/linux-x64",
-      "version": "0.28.1",
-      "bom-ref": "pkg:npm/%40esbuild/linux-x64@0.28.1",
-      "purl": "pkg:npm/%40esbuild/linux-x64@0.28.1",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@esbuild/netbsd-arm64",
-      "version": "0.25.12",
-      "bom-ref": "pkg:npm/%40esbuild/netbsd-arm64@0.25.12",
-      "purl": "pkg:npm/%40esbuild/netbsd-arm64@0.25.12",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@esbuild/netbsd-arm64",
-      "version": "0.28.1",
-      "bom-ref": "pkg:npm/%40esbuild/netbsd-arm64@0.28.1",
-      "purl": "pkg:npm/%40esbuild/netbsd-arm64@0.28.1",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@esbuild/netbsd-x64",
-      "version": "0.25.12",
-      "bom-ref": "pkg:npm/%40esbuild/netbsd-x64@0.25.12",
-      "purl": "pkg:npm/%40esbuild/netbsd-x64@0.25.12",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@esbuild/netbsd-x64",
-      "version": "0.28.1",
-      "bom-ref": "pkg:npm/%40esbuild/netbsd-x64@0.28.1",
-      "purl": "pkg:npm/%40esbuild/netbsd-x64@0.28.1",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@esbuild/openbsd-arm64",
-      "version": "0.25.12",
-      "bom-ref": "pkg:npm/%40esbuild/openbsd-arm64@0.25.12",
-      "purl": "pkg:npm/%40esbuild/openbsd-arm64@0.25.12",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@esbuild/openbsd-arm64",
-      "version": "0.28.1",
-      "bom-ref": "pkg:npm/%40esbuild/openbsd-arm64@0.28.1",
-      "purl": "pkg:npm/%40esbuild/openbsd-arm64@0.28.1",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@esbuild/openbsd-x64",
-      "version": "0.25.12",
-      "bom-ref": "pkg:npm/%40esbuild/openbsd-x64@0.25.12",
-      "purl": "pkg:npm/%40esbuild/openbsd-x64@0.25.12",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@esbuild/openbsd-x64",
-      "version": "0.28.1",
-      "bom-ref": "pkg:npm/%40esbuild/openbsd-x64@0.28.1",
-      "purl": "pkg:npm/%40esbuild/openbsd-x64@0.28.1",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@esbuild/openharmony-arm64",
-      "version": "0.25.12",
-      "bom-ref": "pkg:npm/%40esbuild/openharmony-arm64@0.25.12",
-      "purl": "pkg:npm/%40esbuild/openharmony-arm64@0.25.12",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@esbuild/openharmony-arm64",
-      "version": "0.28.1",
-      "bom-ref": "pkg:npm/%40esbuild/openharmony-arm64@0.28.1",
-      "purl": "pkg:npm/%40esbuild/openharmony-arm64@0.28.1",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@esbuild/sunos-x64",
-      "version": "0.25.12",
-      "bom-ref": "pkg:npm/%40esbuild/sunos-x64@0.25.12",
-      "purl": "pkg:npm/%40esbuild/sunos-x64@0.25.12",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@esbuild/sunos-x64",
-      "version": "0.28.1",
-      "bom-ref": "pkg:npm/%40esbuild/sunos-x64@0.28.1",
-      "purl": "pkg:npm/%40esbuild/sunos-x64@0.28.1",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@esbuild/win32-arm64",
-      "version": "0.25.12",
-      "bom-ref": "pkg:npm/%40esbuild/win32-arm64@0.25.12",
-      "purl": "pkg:npm/%40esbuild/win32-arm64@0.25.12",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@esbuild/win32-arm64",
-      "version": "0.28.1",
-      "bom-ref": "pkg:npm/%40esbuild/win32-arm64@0.28.1",
-      "purl": "pkg:npm/%40esbuild/win32-arm64@0.28.1",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@esbuild/win32-ia32",
-      "version": "0.25.12",
-      "bom-ref": "pkg:npm/%40esbuild/win32-ia32@0.25.12",
-      "purl": "pkg:npm/%40esbuild/win32-ia32@0.25.12",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@esbuild/win32-ia32",
-      "version": "0.28.1",
-      "bom-ref": "pkg:npm/%40esbuild/win32-ia32@0.28.1",
-      "purl": "pkg:npm/%40esbuild/win32-ia32@0.28.1",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@esbuild/win32-x64",
-      "version": "0.25.12",
-      "bom-ref": "pkg:npm/%40esbuild/win32-x64@0.25.12",
-      "purl": "pkg:npm/%40esbuild/win32-x64@0.25.12",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@esbuild/win32-x64",
-      "version": "0.28.1",
-      "bom-ref": "pkg:npm/%40esbuild/win32-x64@0.28.1",
-      "purl": "pkg:npm/%40esbuild/win32-x64@0.28.1",
       "licenses": [
         {
           "license": {
@@ -2032,10 +1232,10 @@
     },
     {
       "type": "library",
-      "name": "@napi-rs/lzma-linux-x64-gnu",
-      "version": "1.5.1",
-      "bom-ref": "pkg:npm/%40napi-rs/lzma-linux-x64-gnu@1.5.1",
-      "purl": "pkg:npm/%40napi-rs/lzma-linux-x64-gnu@1.5.1",
+      "name": "@noble/ciphers",
+      "version": "2.3.0",
+      "bom-ref": "pkg:npm/%40noble/ciphers@2.3.0",
+      "purl": "pkg:npm/%40noble/ciphers@2.3.0",
       "licenses": [
         {
           "license": {
@@ -2132,90 +1332,10 @@
     },
     {
       "type": "library",
-      "name": "@openai/codex-darwin-x64",
-      "version": "0.147.0-darwin-x64",
-      "bom-ref": "pkg:npm/%40openai/codex-darwin-x64@0.147.0-darwin-x64",
-      "purl": "pkg:npm/%40openai/codex-darwin-x64@0.147.0-darwin-x64",
-      "licenses": [
-        {
-          "license": {
-            "name": "Apache-2.0"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@openai/codex-linux-arm64",
-      "version": "0.147.0-linux-arm64",
-      "bom-ref": "pkg:npm/%40openai/codex-linux-arm64@0.147.0-linux-arm64",
-      "purl": "pkg:npm/%40openai/codex-linux-arm64@0.147.0-linux-arm64",
-      "licenses": [
-        {
-          "license": {
-            "name": "Apache-2.0"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@openai/codex-linux-x64",
-      "version": "0.147.0-linux-x64",
-      "bom-ref": "pkg:npm/%40openai/codex-linux-x64@0.147.0-linux-x64",
-      "purl": "pkg:npm/%40openai/codex-linux-x64@0.147.0-linux-x64",
-      "licenses": [
-        {
-          "license": {
-            "name": "Apache-2.0"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@openai/codex-win32-arm64",
-      "version": "0.147.0-win32-arm64",
-      "bom-ref": "pkg:npm/%40openai/codex-win32-arm64@0.147.0-win32-arm64",
-      "purl": "pkg:npm/%40openai/codex-win32-arm64@0.147.0-win32-arm64",
-      "licenses": [
-        {
-          "license": {
-            "name": "Apache-2.0"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@openai/codex-win32-x64",
-      "version": "0.147.0-win32-x64",
-      "bom-ref": "pkg:npm/%40openai/codex-win32-x64@0.147.0-win32-x64",
-      "purl": "pkg:npm/%40openai/codex-win32-x64@0.147.0-win32-x64",
+      "name": "@opentelemetry/semantic-conventions",
+      "version": "1.43.0",
+      "bom-ref": "pkg:npm/%40opentelemetry/semantic-conventions@1.43.0",
+      "purl": "pkg:npm/%40opentelemetry/semantic-conventions@1.43.0",
       "licenses": [
         {
           "license": {
@@ -2312,46 +1432,6 @@
     },
     {
       "type": "library",
-      "name": "@rollup/rollup-android-arm-eabi",
-      "version": "4.62.4",
-      "bom-ref": "pkg:npm/%40rollup/rollup-android-arm-eabi@4.62.4",
-      "purl": "pkg:npm/%40rollup/rollup-android-arm-eabi@4.62.4",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@rollup/rollup-android-arm64",
-      "version": "4.62.4",
-      "bom-ref": "pkg:npm/%40rollup/rollup-android-arm64@4.62.4",
-      "purl": "pkg:npm/%40rollup/rollup-android-arm64@4.62.4",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
       "name": "@rollup/rollup-darwin-arm64",
       "version": "4.62.4",
       "bom-ref": "pkg:npm/%40rollup/rollup-darwin-arm64@4.62.4",
@@ -2372,450 +1452,30 @@
     },
     {
       "type": "library",
-      "name": "@rollup/rollup-darwin-x64",
-      "version": "4.62.4",
-      "bom-ref": "pkg:npm/%40rollup/rollup-darwin-x64@4.62.4",
-      "purl": "pkg:npm/%40rollup/rollup-darwin-x64@4.62.4",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@rollup/rollup-freebsd-arm64",
-      "version": "4.62.4",
-      "bom-ref": "pkg:npm/%40rollup/rollup-freebsd-arm64@4.62.4",
-      "purl": "pkg:npm/%40rollup/rollup-freebsd-arm64@4.62.4",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@rollup/rollup-freebsd-x64",
-      "version": "4.62.4",
-      "bom-ref": "pkg:npm/%40rollup/rollup-freebsd-x64@4.62.4",
-      "purl": "pkg:npm/%40rollup/rollup-freebsd-x64@4.62.4",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@rollup/rollup-linux-arm-gnueabihf",
-      "version": "4.62.4",
-      "bom-ref": "pkg:npm/%40rollup/rollup-linux-arm-gnueabihf@4.62.4",
-      "purl": "pkg:npm/%40rollup/rollup-linux-arm-gnueabihf@4.62.4",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@rollup/rollup-linux-arm-musleabihf",
-      "version": "4.62.4",
-      "bom-ref": "pkg:npm/%40rollup/rollup-linux-arm-musleabihf@4.62.4",
-      "purl": "pkg:npm/%40rollup/rollup-linux-arm-musleabihf@4.62.4",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@rollup/rollup-linux-arm64-gnu",
-      "version": "4.62.4",
-      "bom-ref": "pkg:npm/%40rollup/rollup-linux-arm64-gnu@4.62.4",
-      "purl": "pkg:npm/%40rollup/rollup-linux-arm64-gnu@4.62.4",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@rollup/rollup-linux-arm64-musl",
-      "version": "4.62.4",
-      "bom-ref": "pkg:npm/%40rollup/rollup-linux-arm64-musl@4.62.4",
-      "purl": "pkg:npm/%40rollup/rollup-linux-arm64-musl@4.62.4",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@rollup/rollup-linux-loong64-gnu",
-      "version": "4.62.4",
-      "bom-ref": "pkg:npm/%40rollup/rollup-linux-loong64-gnu@4.62.4",
-      "purl": "pkg:npm/%40rollup/rollup-linux-loong64-gnu@4.62.4",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@rollup/rollup-linux-loong64-musl",
-      "version": "4.62.4",
-      "bom-ref": "pkg:npm/%40rollup/rollup-linux-loong64-musl@4.62.4",
-      "purl": "pkg:npm/%40rollup/rollup-linux-loong64-musl@4.62.4",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@rollup/rollup-linux-ppc64-gnu",
-      "version": "4.62.4",
-      "bom-ref": "pkg:npm/%40rollup/rollup-linux-ppc64-gnu@4.62.4",
-      "purl": "pkg:npm/%40rollup/rollup-linux-ppc64-gnu@4.62.4",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@rollup/rollup-linux-ppc64-musl",
-      "version": "4.62.4",
-      "bom-ref": "pkg:npm/%40rollup/rollup-linux-ppc64-musl@4.62.4",
-      "purl": "pkg:npm/%40rollup/rollup-linux-ppc64-musl@4.62.4",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@rollup/rollup-linux-riscv64-gnu",
-      "version": "4.62.4",
-      "bom-ref": "pkg:npm/%40rollup/rollup-linux-riscv64-gnu@4.62.4",
-      "purl": "pkg:npm/%40rollup/rollup-linux-riscv64-gnu@4.62.4",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@rollup/rollup-linux-riscv64-musl",
-      "version": "4.62.4",
-      "bom-ref": "pkg:npm/%40rollup/rollup-linux-riscv64-musl@4.62.4",
-      "purl": "pkg:npm/%40rollup/rollup-linux-riscv64-musl@4.62.4",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@rollup/rollup-linux-s390x-gnu",
-      "version": "4.62.4",
-      "bom-ref": "pkg:npm/%40rollup/rollup-linux-s390x-gnu@4.62.4",
-      "purl": "pkg:npm/%40rollup/rollup-linux-s390x-gnu@4.62.4",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@rollup/rollup-linux-x64-gnu",
-      "version": "4.62.4",
-      "bom-ref": "pkg:npm/%40rollup/rollup-linux-x64-gnu@4.62.4",
-      "purl": "pkg:npm/%40rollup/rollup-linux-x64-gnu@4.62.4",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@rollup/rollup-linux-x64-musl",
-      "version": "4.62.4",
-      "bom-ref": "pkg:npm/%40rollup/rollup-linux-x64-musl@4.62.4",
-      "purl": "pkg:npm/%40rollup/rollup-linux-x64-musl@4.62.4",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@rollup/rollup-openbsd-x64",
-      "version": "4.62.4",
-      "bom-ref": "pkg:npm/%40rollup/rollup-openbsd-x64@4.62.4",
-      "purl": "pkg:npm/%40rollup/rollup-openbsd-x64@4.62.4",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@rollup/rollup-openharmony-arm64",
-      "version": "4.62.4",
-      "bom-ref": "pkg:npm/%40rollup/rollup-openharmony-arm64@4.62.4",
-      "purl": "pkg:npm/%40rollup/rollup-openharmony-arm64@4.62.4",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@rollup/rollup-win32-arm64-msvc",
-      "version": "4.62.4",
-      "bom-ref": "pkg:npm/%40rollup/rollup-win32-arm64-msvc@4.62.4",
-      "purl": "pkg:npm/%40rollup/rollup-win32-arm64-msvc@4.62.4",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@rollup/rollup-win32-ia32-msvc",
-      "version": "4.62.4",
-      "bom-ref": "pkg:npm/%40rollup/rollup-win32-ia32-msvc@4.62.4",
-      "purl": "pkg:npm/%40rollup/rollup-win32-ia32-msvc@4.62.4",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@rollup/rollup-win32-x64-gnu",
-      "version": "4.62.4",
-      "bom-ref": "pkg:npm/%40rollup/rollup-win32-x64-gnu@4.62.4",
-      "purl": "pkg:npm/%40rollup/rollup-win32-x64-gnu@4.62.4",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@rollup/rollup-win32-x64-msvc",
-      "version": "4.62.4",
-      "bom-ref": "pkg:npm/%40rollup/rollup-win32-x64-msvc@4.62.4",
-      "purl": "pkg:npm/%40rollup/rollup-win32-x64-msvc@4.62.4",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
       "name": "@sindresorhus/is",
       "version": "4.6.0",
       "bom-ref": "pkg:npm/%40sindresorhus/is@4.6.0",
       "purl": "pkg:npm/%40sindresorhus/is@4.6.0",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "agent-fabric:replacement-boundary",
+          "value": "Transitive dependency behind a registered direct package boundary"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@standard-schema/spec",
+      "version": "1.1.0",
+      "bom-ref": "pkg:npm/%40standard-schema/spec@1.1.0",
+      "purl": "pkg:npm/%40standard-schema/spec@1.1.0",
       "licenses": [
         {
           "license": {
@@ -2892,230 +1552,10 @@
     },
     {
       "type": "library",
-      "name": "@tailwindcss/oxide-android-arm64",
-      "version": "4.3.3",
-      "bom-ref": "pkg:npm/%40tailwindcss/oxide-android-arm64@4.3.3",
-      "purl": "pkg:npm/%40tailwindcss/oxide-android-arm64@4.3.3",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
       "name": "@tailwindcss/oxide-darwin-arm64",
       "version": "4.3.3",
       "bom-ref": "pkg:npm/%40tailwindcss/oxide-darwin-arm64@4.3.3",
       "purl": "pkg:npm/%40tailwindcss/oxide-darwin-arm64@4.3.3",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@tailwindcss/oxide-darwin-x64",
-      "version": "4.3.3",
-      "bom-ref": "pkg:npm/%40tailwindcss/oxide-darwin-x64@4.3.3",
-      "purl": "pkg:npm/%40tailwindcss/oxide-darwin-x64@4.3.3",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@tailwindcss/oxide-freebsd-x64",
-      "version": "4.3.3",
-      "bom-ref": "pkg:npm/%40tailwindcss/oxide-freebsd-x64@4.3.3",
-      "purl": "pkg:npm/%40tailwindcss/oxide-freebsd-x64@4.3.3",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@tailwindcss/oxide-linux-arm-gnueabihf",
-      "version": "4.3.3",
-      "bom-ref": "pkg:npm/%40tailwindcss/oxide-linux-arm-gnueabihf@4.3.3",
-      "purl": "pkg:npm/%40tailwindcss/oxide-linux-arm-gnueabihf@4.3.3",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@tailwindcss/oxide-linux-arm64-gnu",
-      "version": "4.3.3",
-      "bom-ref": "pkg:npm/%40tailwindcss/oxide-linux-arm64-gnu@4.3.3",
-      "purl": "pkg:npm/%40tailwindcss/oxide-linux-arm64-gnu@4.3.3",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@tailwindcss/oxide-linux-arm64-musl",
-      "version": "4.3.3",
-      "bom-ref": "pkg:npm/%40tailwindcss/oxide-linux-arm64-musl@4.3.3",
-      "purl": "pkg:npm/%40tailwindcss/oxide-linux-arm64-musl@4.3.3",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@tailwindcss/oxide-linux-x64-gnu",
-      "version": "4.3.3",
-      "bom-ref": "pkg:npm/%40tailwindcss/oxide-linux-x64-gnu@4.3.3",
-      "purl": "pkg:npm/%40tailwindcss/oxide-linux-x64-gnu@4.3.3",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@tailwindcss/oxide-linux-x64-musl",
-      "version": "4.3.3",
-      "bom-ref": "pkg:npm/%40tailwindcss/oxide-linux-x64-musl@4.3.3",
-      "purl": "pkg:npm/%40tailwindcss/oxide-linux-x64-musl@4.3.3",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@tailwindcss/oxide-wasm32-wasi",
-      "version": "4.3.3",
-      "bom-ref": "pkg:npm/%40tailwindcss/oxide-wasm32-wasi@4.3.3",
-      "purl": "pkg:npm/%40tailwindcss/oxide-wasm32-wasi@4.3.3",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@tailwindcss/oxide-win32-arm64-msvc",
-      "version": "4.3.3",
-      "bom-ref": "pkg:npm/%40tailwindcss/oxide-win32-arm64-msvc@4.3.3",
-      "purl": "pkg:npm/%40tailwindcss/oxide-win32-arm64-msvc@4.3.3",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "@tailwindcss/oxide-win32-x64-msvc",
-      "version": "4.3.3",
-      "bom-ref": "pkg:npm/%40tailwindcss/oxide-win32-x64-msvc@4.3.3",
-      "purl": "pkg:npm/%40tailwindcss/oxide-win32-x64-msvc@4.3.3",
       "licenses": [
         {
           "license": {
@@ -3332,6 +1772,26 @@
     },
     {
       "type": "library",
+      "name": "@types/chai",
+      "version": "5.2.3",
+      "bom-ref": "pkg:npm/%40types/chai@5.2.3",
+      "purl": "pkg:npm/%40types/chai@5.2.3",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "agent-fabric:replacement-boundary",
+          "value": "Transitive dependency behind a registered direct package boundary"
+        }
+      ]
+    },
+    {
+      "type": "library",
       "name": "@types/connect",
       "version": "3.4.38",
       "bom-ref": "pkg:npm/%40types/connect@3.4.38",
@@ -3356,6 +1816,26 @@
       "version": "4.1.13",
       "bom-ref": "pkg:npm/%40types/debug@4.1.13",
       "purl": "pkg:npm/%40types/debug@4.1.13",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "agent-fabric:replacement-boundary",
+          "value": "Transitive dependency behind a registered direct package boundary"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@types/deep-eql",
+      "version": "4.0.2",
+      "bom-ref": "pkg:npm/%40types/deep-eql@4.0.2",
+      "purl": "pkg:npm/%40types/deep-eql@4.0.2",
       "licenses": [
         {
           "license": {
@@ -3572,6 +2052,26 @@
     },
     {
       "type": "library",
+      "name": "@types/nodemailer",
+      "version": "8.0.1",
+      "bom-ref": "pkg:npm/%40types/nodemailer@8.0.1",
+      "purl": "pkg:npm/%40types/nodemailer@8.0.1",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "agent-fabric:replacement-boundary",
+          "value": "Type checker"
+        }
+      ]
+    },
+    {
+      "type": "library",
       "name": "@types/qs",
       "version": "6.15.1",
       "bom-ref": "pkg:npm/%40types/qs@6.15.1",
@@ -3747,6 +2247,166 @@
         {
           "name": "agent-fabric:replacement-boundary",
           "value": "Type checker"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@vitest/expect",
+      "version": "3.2.6",
+      "bom-ref": "pkg:npm/%40vitest/expect@3.2.6",
+      "purl": "pkg:npm/%40vitest/expect@3.2.6",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "agent-fabric:replacement-boundary",
+          "value": "Transitive dependency behind a registered direct package boundary"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@vitest/mocker",
+      "version": "3.2.6",
+      "bom-ref": "pkg:npm/%40vitest/mocker@3.2.6",
+      "purl": "pkg:npm/%40vitest/mocker@3.2.6",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "agent-fabric:replacement-boundary",
+          "value": "Transitive dependency behind a registered direct package boundary"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@vitest/pretty-format",
+      "version": "3.2.6",
+      "bom-ref": "pkg:npm/%40vitest/pretty-format@3.2.6",
+      "purl": "pkg:npm/%40vitest/pretty-format@3.2.6",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "agent-fabric:replacement-boundary",
+          "value": "Transitive dependency behind a registered direct package boundary"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@vitest/pretty-format",
+      "version": "3.2.7",
+      "bom-ref": "pkg:npm/%40vitest/pretty-format@3.2.7",
+      "purl": "pkg:npm/%40vitest/pretty-format@3.2.7",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "agent-fabric:replacement-boundary",
+          "value": "Transitive dependency behind a registered direct package boundary"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@vitest/runner",
+      "version": "3.2.6",
+      "bom-ref": "pkg:npm/%40vitest/runner@3.2.6",
+      "purl": "pkg:npm/%40vitest/runner@3.2.6",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "agent-fabric:replacement-boundary",
+          "value": "Transitive dependency behind a registered direct package boundary"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@vitest/snapshot",
+      "version": "3.2.6",
+      "bom-ref": "pkg:npm/%40vitest/snapshot@3.2.6",
+      "purl": "pkg:npm/%40vitest/snapshot@3.2.6",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "agent-fabric:replacement-boundary",
+          "value": "Transitive dependency behind a registered direct package boundary"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@vitest/spy",
+      "version": "3.2.6",
+      "bom-ref": "pkg:npm/%40vitest/spy@3.2.6",
+      "purl": "pkg:npm/%40vitest/spy@3.2.6",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "agent-fabric:replacement-boundary",
+          "value": "Transitive dependency behind a registered direct package boundary"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "@vitest/utils",
+      "version": "3.2.6",
+      "bom-ref": "pkg:npm/%40vitest/utils@3.2.6",
+      "purl": "pkg:npm/%40vitest/utils@3.2.6",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "agent-fabric:replacement-boundary",
+          "value": "Transitive dependency behind a registered direct package boundary"
         }
       ]
     },
@@ -3992,6 +2652,26 @@
     },
     {
       "type": "library",
+      "name": "assertion-error",
+      "version": "2.0.1",
+      "bom-ref": "pkg:npm/assertion-error@2.0.1",
+      "purl": "pkg:npm/assertion-error@2.0.1",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "agent-fabric:replacement-boundary",
+          "value": "Transitive dependency behind a registered direct package boundary"
+        }
+      ]
+    },
+    {
+      "type": "library",
       "name": "async",
       "version": "3.2.6",
       "bom-ref": "pkg:npm/async@3.2.6",
@@ -4192,6 +2872,46 @@
     },
     {
       "type": "library",
+      "name": "better-auth",
+      "version": "1.6.29",
+      "bom-ref": "pkg:npm/better-auth@1.6.29",
+      "purl": "pkg:npm/better-auth@1.6.29",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "agent-fabric:replacement-boundary",
+          "value": "AuthenticationBroker"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "better-call",
+      "version": "1.4.0",
+      "bom-ref": "pkg:npm/better-call@1.4.0",
+      "purl": "pkg:npm/better-call@1.4.0",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "agent-fabric:replacement-boundary",
+          "value": "Transitive dependency behind a registered direct package boundary"
+        }
+      ]
+    },
+    {
+      "type": "library",
       "name": "bluebird",
       "version": "3.7.2",
       "bom-ref": "pkg:npm/bluebird@3.7.2",
@@ -4356,26 +3076,6 @@
       "version": "26.15.3",
       "bom-ref": "pkg:npm/builder-util@26.15.3",
       "purl": "pkg:npm/builder-util@26.15.3",
-      "licenses": [
-        {
-          "license": {
-            "name": "MIT"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "builder-util-runtime",
-      "version": "9.5.1",
-      "bom-ref": "pkg:npm/builder-util-runtime@9.5.1",
-      "purl": "pkg:npm/builder-util-runtime@9.5.1",
       "licenses": [
         {
           "license": {
@@ -4592,10 +3292,50 @@
     },
     {
       "type": "library",
+      "name": "chai",
+      "version": "5.3.3",
+      "bom-ref": "pkg:npm/chai@5.3.3",
+      "purl": "pkg:npm/chai@5.3.3",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "agent-fabric:replacement-boundary",
+          "value": "Transitive dependency behind a registered direct package boundary"
+        }
+      ]
+    },
+    {
+      "type": "library",
       "name": "chalk",
       "version": "4.1.2",
       "bom-ref": "pkg:npm/chalk@4.1.2",
       "purl": "pkg:npm/chalk@4.1.2",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "agent-fabric:replacement-boundary",
+          "value": "Transitive dependency behind a registered direct package boundary"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "check-error",
+      "version": "2.1.3",
+      "bom-ref": "pkg:npm/check-error@2.1.3",
+      "purl": "pkg:npm/check-error@2.1.3",
       "licenses": [
         {
           "license": {
@@ -5112,6 +3852,26 @@
     },
     {
       "type": "library",
+      "name": "deep-eql",
+      "version": "5.0.2",
+      "bom-ref": "pkg:npm/deep-eql@5.0.2",
+      "purl": "pkg:npm/deep-eql@5.0.2",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "agent-fabric:replacement-boundary",
+          "value": "Transitive dependency behind a registered direct package boundary"
+        }
+      ]
+    },
+    {
+      "type": "library",
       "name": "default-browser",
       "version": "5.5.0",
       "bom-ref": "pkg:npm/default-browser@5.5.0",
@@ -5216,6 +3976,26 @@
       "version": "1.2.1",
       "bom-ref": "pkg:npm/define-properties@1.2.1",
       "purl": "pkg:npm/define-properties@1.2.1",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "agent-fabric:replacement-boundary",
+          "value": "Transitive dependency behind a registered direct package boundary"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "defu",
+      "version": "6.1.7",
+      "bom-ref": "pkg:npm/defu@6.1.7",
+      "purl": "pkg:npm/defu@6.1.7",
       "licenses": [
         {
           "license": {
@@ -5633,9 +4413,9 @@
     {
       "type": "library",
       "name": "electron-updater",
-      "version": "6.8.3",
-      "bom-ref": "pkg:npm/electron-updater@6.8.3",
-      "purl": "pkg:npm/electron-updater@6.8.3",
+      "version": "6.8.9",
+      "bom-ref": "pkg:npm/electron-updater@6.8.9",
+      "purl": "pkg:npm/electron-updater@6.8.9",
       "licenses": [
         {
           "license": {
@@ -5772,6 +4552,26 @@
     },
     {
       "type": "library",
+      "name": "entities",
+      "version": "7.0.1",
+      "bom-ref": "pkg:npm/entities@7.0.1",
+      "purl": "pkg:npm/entities@7.0.1",
+      "licenses": [
+        {
+          "license": {
+            "name": "BSD-2-Clause"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "agent-fabric:replacement-boundary",
+          "value": "Transitive dependency behind a registered direct package boundary"
+        }
+      ]
+    },
+    {
+      "type": "library",
       "name": "env-paths",
       "version": "2.2.1",
       "bom-ref": "pkg:npm/env-paths@2.2.1",
@@ -5856,6 +4656,26 @@
       "version": "1.3.0",
       "bom-ref": "pkg:npm/es-errors@1.3.0",
       "purl": "pkg:npm/es-errors@1.3.0",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "agent-fabric:replacement-boundary",
+          "value": "Transitive dependency behind a registered direct package boundary"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "es-module-lexer",
+      "version": "1.7.0",
+      "bom-ref": "pkg:npm/es-module-lexer@1.7.0",
+      "purl": "pkg:npm/es-module-lexer@1.7.0",
       "licenses": [
         {
           "license": {
@@ -6032,6 +4852,26 @@
     },
     {
       "type": "library",
+      "name": "estree-walker",
+      "version": "3.0.3",
+      "bom-ref": "pkg:npm/estree-walker@3.0.3",
+      "purl": "pkg:npm/estree-walker@3.0.3",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "agent-fabric:replacement-boundary",
+          "value": "Transitive dependency behind a registered direct package boundary"
+        }
+      ]
+    },
+    {
+      "type": "library",
       "name": "etag",
       "version": "1.8.1",
       "bom-ref": "pkg:npm/etag@1.8.1",
@@ -6040,6 +4880,26 @@
         {
           "license": {
             "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "agent-fabric:replacement-boundary",
+          "value": "Transitive dependency behind a registered direct package boundary"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "expect-type",
+      "version": "1.4.0",
+      "bom-ref": "pkg:npm/expect-type@1.4.0",
+      "purl": "pkg:npm/expect-type@1.4.0",
+      "licenses": [
+        {
+          "license": {
+            "name": "Apache-2.0"
           }
         }
       ],
@@ -6673,9 +5533,9 @@
     {
       "type": "library",
       "name": "happy-dom",
-      "version": "18.0.1",
-      "bom-ref": "pkg:npm/happy-dom@18.0.1",
-      "purl": "pkg:npm/happy-dom@18.0.1",
+      "version": "20.8.9",
+      "bom-ref": "pkg:npm/happy-dom@20.8.9",
+      "purl": "pkg:npm/happy-dom@20.8.9",
       "licenses": [
         {
           "license": {
@@ -7332,6 +6192,26 @@
     },
     {
       "type": "library",
+      "name": "js-tokens",
+      "version": "9.0.1",
+      "bom-ref": "pkg:npm/js-tokens@9.0.1",
+      "purl": "pkg:npm/js-tokens@9.0.1",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "agent-fabric:replacement-boundary",
+          "value": "Transitive dependency behind a registered direct package boundary"
+        }
+      ]
+    },
+    {
+      "type": "library",
       "name": "js-yaml",
       "version": "4.3.1",
       "bom-ref": "pkg:npm/js-yaml@4.3.1",
@@ -7512,6 +6392,26 @@
     },
     {
       "type": "library",
+      "name": "kysely",
+      "version": "0.29.5",
+      "bom-ref": "pkg:npm/kysely@0.29.5",
+      "purl": "pkg:npm/kysely@0.29.5",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "agent-fabric:replacement-boundary",
+          "value": "Transitive dependency behind a registered direct package boundary"
+        }
+      ]
+    },
+    {
+      "type": "library",
       "name": "lazy-val",
       "version": "1.0.5",
       "bom-ref": "pkg:npm/lazy-val@1.0.5",
@@ -7552,210 +6452,10 @@
     },
     {
       "type": "library",
-      "name": "lightningcss-android-arm64",
-      "version": "1.32.0",
-      "bom-ref": "pkg:npm/lightningcss-android-arm64@1.32.0",
-      "purl": "pkg:npm/lightningcss-android-arm64@1.32.0",
-      "licenses": [
-        {
-          "license": {
-            "name": "MPL-2.0"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
       "name": "lightningcss-darwin-arm64",
       "version": "1.32.0",
       "bom-ref": "pkg:npm/lightningcss-darwin-arm64@1.32.0",
       "purl": "pkg:npm/lightningcss-darwin-arm64@1.32.0",
-      "licenses": [
-        {
-          "license": {
-            "name": "MPL-2.0"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "lightningcss-darwin-x64",
-      "version": "1.32.0",
-      "bom-ref": "pkg:npm/lightningcss-darwin-x64@1.32.0",
-      "purl": "pkg:npm/lightningcss-darwin-x64@1.32.0",
-      "licenses": [
-        {
-          "license": {
-            "name": "MPL-2.0"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "lightningcss-freebsd-x64",
-      "version": "1.32.0",
-      "bom-ref": "pkg:npm/lightningcss-freebsd-x64@1.32.0",
-      "purl": "pkg:npm/lightningcss-freebsd-x64@1.32.0",
-      "licenses": [
-        {
-          "license": {
-            "name": "MPL-2.0"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "lightningcss-linux-arm-gnueabihf",
-      "version": "1.32.0",
-      "bom-ref": "pkg:npm/lightningcss-linux-arm-gnueabihf@1.32.0",
-      "purl": "pkg:npm/lightningcss-linux-arm-gnueabihf@1.32.0",
-      "licenses": [
-        {
-          "license": {
-            "name": "MPL-2.0"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "lightningcss-linux-arm64-gnu",
-      "version": "1.32.0",
-      "bom-ref": "pkg:npm/lightningcss-linux-arm64-gnu@1.32.0",
-      "purl": "pkg:npm/lightningcss-linux-arm64-gnu@1.32.0",
-      "licenses": [
-        {
-          "license": {
-            "name": "MPL-2.0"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "lightningcss-linux-arm64-musl",
-      "version": "1.32.0",
-      "bom-ref": "pkg:npm/lightningcss-linux-arm64-musl@1.32.0",
-      "purl": "pkg:npm/lightningcss-linux-arm64-musl@1.32.0",
-      "licenses": [
-        {
-          "license": {
-            "name": "MPL-2.0"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "lightningcss-linux-x64-gnu",
-      "version": "1.32.0",
-      "bom-ref": "pkg:npm/lightningcss-linux-x64-gnu@1.32.0",
-      "purl": "pkg:npm/lightningcss-linux-x64-gnu@1.32.0",
-      "licenses": [
-        {
-          "license": {
-            "name": "MPL-2.0"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "lightningcss-linux-x64-musl",
-      "version": "1.32.0",
-      "bom-ref": "pkg:npm/lightningcss-linux-x64-musl@1.32.0",
-      "purl": "pkg:npm/lightningcss-linux-x64-musl@1.32.0",
-      "licenses": [
-        {
-          "license": {
-            "name": "MPL-2.0"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "lightningcss-win32-arm64-msvc",
-      "version": "1.32.0",
-      "bom-ref": "pkg:npm/lightningcss-win32-arm64-msvc@1.32.0",
-      "purl": "pkg:npm/lightningcss-win32-arm64-msvc@1.32.0",
-      "licenses": [
-        {
-          "license": {
-            "name": "MPL-2.0"
-          }
-        }
-      ],
-      "properties": [
-        {
-          "name": "agent-fabric:replacement-boundary",
-          "value": "Transitive dependency behind a registered direct package boundary"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "lightningcss-win32-x64-msvc",
-      "version": "1.32.0",
-      "bom-ref": "pkg:npm/lightningcss-win32-x64-msvc@1.32.0",
-      "purl": "pkg:npm/lightningcss-win32-x64-msvc@1.32.0",
       "licenses": [
         {
           "license": {
@@ -7840,6 +6540,26 @@
         {
           "license": {
             "name": "Apache-2.0"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "agent-fabric:replacement-boundary",
+          "value": "Transitive dependency behind a registered direct package boundary"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "loupe",
+      "version": "3.2.1",
+      "bom-ref": "pkg:npm/loupe@3.2.1",
+      "purl": "pkg:npm/loupe@3.2.1",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
           }
         }
       ],
@@ -8452,6 +7172,26 @@
     },
     {
       "type": "library",
+      "name": "nanostores",
+      "version": "1.5.0",
+      "bom-ref": "pkg:npm/nanostores@1.5.0",
+      "purl": "pkg:npm/nanostores@1.5.0",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "agent-fabric:replacement-boundary",
+          "value": "Transitive dependency behind a registered direct package boundary"
+        }
+      ]
+    },
+    {
+      "type": "library",
       "name": "negotiator",
       "version": "1.0.0",
       "bom-ref": "pkg:npm/negotiator@1.0.0",
@@ -8567,6 +7307,26 @@
         {
           "name": "agent-fabric:replacement-boundary",
           "value": "Transitive dependency behind a registered direct package boundary"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "nodemailer",
+      "version": "9.0.5",
+      "bom-ref": "pkg:npm/nodemailer@9.0.5",
+      "purl": "pkg:npm/nodemailer@9.0.5",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT-0"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "agent-fabric:replacement-boundary",
+          "value": "AuthenticationMailTransport"
         }
       ]
     },
@@ -8816,6 +7576,46 @@
       "version": "8.4.2",
       "bom-ref": "pkg:npm/path-to-regexp@8.4.2",
       "purl": "pkg:npm/path-to-regexp@8.4.2",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "agent-fabric:replacement-boundary",
+          "value": "Transitive dependency behind a registered direct package boundary"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "pathe",
+      "version": "2.0.3",
+      "bom-ref": "pkg:npm/pathe@2.0.3",
+      "purl": "pkg:npm/pathe@2.0.3",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "agent-fabric:replacement-boundary",
+          "value": "Transitive dependency behind a registered direct package boundary"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "pathval",
+      "version": "2.0.1",
+      "bom-ref": "pkg:npm/pathval@2.0.1",
+      "purl": "pkg:npm/pathval@2.0.1",
       "licenses": [
         {
           "license": {
@@ -9252,6 +8052,26 @@
     },
     {
       "type": "library",
+      "name": "rate-limiter-flexible",
+      "version": "11.2.0",
+      "bom-ref": "pkg:npm/rate-limiter-flexible@11.2.0",
+      "purl": "pkg:npm/rate-limiter-flexible@11.2.0",
+      "licenses": [
+        {
+          "license": {
+            "name": "ISC"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "agent-fabric:replacement-boundary",
+          "value": "AuthenticationRateLimiter"
+        }
+      ]
+    },
+    {
+      "type": "library",
       "name": "raw-body",
       "version": "3.0.2",
       "bom-ref": "pkg:npm/raw-body@3.0.2",
@@ -9572,6 +8392,26 @@
     },
     {
       "type": "library",
+      "name": "rou3",
+      "version": "0.9.2",
+      "bom-ref": "pkg:npm/rou3@0.9.2",
+      "purl": "pkg:npm/rou3@0.9.2",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "agent-fabric:replacement-boundary",
+          "value": "Transitive dependency behind a registered direct package boundary"
+        }
+      ]
+    },
+    {
+      "type": "library",
       "name": "router",
       "version": "2.2.0",
       "bom-ref": "pkg:npm/router@2.2.0",
@@ -9872,6 +8712,26 @@
     },
     {
       "type": "library",
+      "name": "set-cookie-parser",
+      "version": "3.1.2",
+      "bom-ref": "pkg:npm/set-cookie-parser@3.1.2",
+      "purl": "pkg:npm/set-cookie-parser@3.1.2",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "agent-fabric:replacement-boundary",
+          "value": "Transitive dependency behind a registered direct package boundary"
+        }
+      ]
+    },
+    {
+      "type": "library",
       "name": "setprototypeof",
       "version": "1.2.0",
       "bom-ref": "pkg:npm/setprototypeof@1.2.0",
@@ -10000,6 +8860,26 @@
         {
           "license": {
             "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "agent-fabric:replacement-boundary",
+          "value": "Transitive dependency behind a registered direct package boundary"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "siginfo",
+      "version": "2.0.0",
+      "bom-ref": "pkg:npm/siginfo@2.0.0",
+      "purl": "pkg:npm/siginfo@2.0.0",
+      "licenses": [
+        {
+          "license": {
+            "name": "ISC"
           }
         }
       ],
@@ -10192,6 +9072,26 @@
     },
     {
       "type": "library",
+      "name": "stackback",
+      "version": "0.0.2",
+      "bom-ref": "pkg:npm/stackback@0.0.2",
+      "purl": "pkg:npm/stackback@0.0.2",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "agent-fabric:replacement-boundary",
+          "value": "Transitive dependency behind a registered direct package boundary"
+        }
+      ]
+    },
+    {
+      "type": "library",
       "name": "stat-mode",
       "version": "1.0.0",
       "bom-ref": "pkg:npm/stat-mode@1.0.0",
@@ -10216,6 +9116,26 @@
       "version": "2.0.2",
       "bom-ref": "pkg:npm/statuses@2.0.2",
       "purl": "pkg:npm/statuses@2.0.2",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "agent-fabric:replacement-boundary",
+          "value": "Transitive dependency behind a registered direct package boundary"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "std-env",
+      "version": "3.10.0",
+      "bom-ref": "pkg:npm/std-env@3.10.0",
+      "purl": "pkg:npm/std-env@3.10.0",
       "licenses": [
         {
           "license": {
@@ -10276,6 +9196,26 @@
       "version": "6.0.1",
       "bom-ref": "pkg:npm/strip-ansi@6.0.1",
       "purl": "pkg:npm/strip-ansi@6.0.1",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "agent-fabric:replacement-boundary",
+          "value": "Transitive dependency behind a registered direct package boundary"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "strip-literal",
+      "version": "3.1.0",
+      "bom-ref": "pkg:npm/strip-literal@3.1.0",
+      "purl": "pkg:npm/strip-literal@3.1.0",
       "licenses": [
         {
           "license": {
@@ -10472,10 +9412,110 @@
     },
     {
       "type": "library",
+      "name": "tinybench",
+      "version": "2.9.0",
+      "bom-ref": "pkg:npm/tinybench@2.9.0",
+      "purl": "pkg:npm/tinybench@2.9.0",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "agent-fabric:replacement-boundary",
+          "value": "Transitive dependency behind a registered direct package boundary"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "tinyexec",
+      "version": "0.3.2",
+      "bom-ref": "pkg:npm/tinyexec@0.3.2",
+      "purl": "pkg:npm/tinyexec@0.3.2",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "agent-fabric:replacement-boundary",
+          "value": "Transitive dependency behind a registered direct package boundary"
+        }
+      ]
+    },
+    {
+      "type": "library",
       "name": "tinyglobby",
       "version": "0.2.17",
       "bom-ref": "pkg:npm/tinyglobby@0.2.17",
       "purl": "pkg:npm/tinyglobby@0.2.17",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "agent-fabric:replacement-boundary",
+          "value": "Transitive dependency behind a registered direct package boundary"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "tinypool",
+      "version": "1.1.1",
+      "bom-ref": "pkg:npm/tinypool@1.1.1",
+      "purl": "pkg:npm/tinypool@1.1.1",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "agent-fabric:replacement-boundary",
+          "value": "Transitive dependency behind a registered direct package boundary"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "tinyrainbow",
+      "version": "2.0.0",
+      "bom-ref": "pkg:npm/tinyrainbow@2.0.0",
+      "purl": "pkg:npm/tinyrainbow@2.0.0",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "agent-fabric:replacement-boundary",
+          "value": "Transitive dependency behind a registered direct package boundary"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "tinyspy",
+      "version": "4.0.4",
+      "bom-ref": "pkg:npm/tinyspy@4.0.4",
+      "purl": "pkg:npm/tinyspy@4.0.4",
       "licenses": [
         {
           "license": {
@@ -10932,6 +9972,46 @@
     },
     {
       "type": "library",
+      "name": "vite-node",
+      "version": "3.2.4",
+      "bom-ref": "pkg:npm/vite-node@3.2.4",
+      "purl": "pkg:npm/vite-node@3.2.4",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "agent-fabric:replacement-boundary",
+          "value": "Transitive dependency behind a registered direct package boundary"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "vitest",
+      "version": "3.2.6",
+      "bom-ref": "pkg:npm/vitest@3.2.6",
+      "purl": "pkg:npm/vitest@3.2.6",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "agent-fabric:replacement-boundary",
+          "value": "Test runner"
+        }
+      ]
+    },
+    {
+      "type": "library",
       "name": "vscode-jsonrpc",
       "version": "9.0.1",
       "bom-ref": "pkg:npm/vscode-jsonrpc@9.0.1",
@@ -11040,6 +10120,26 @@
         {
           "license": {
             "name": "ISC"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "agent-fabric:replacement-boundary",
+          "value": "Transitive dependency behind a registered direct package boundary"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "why-is-node-running",
+      "version": "2.3.0",
+      "bom-ref": "pkg:npm/why-is-node-running@2.3.0",
+      "purl": "pkg:npm/why-is-node-running@2.3.0",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
           }
         }
       ],

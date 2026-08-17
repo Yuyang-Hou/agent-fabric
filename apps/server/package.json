@@ -12,11 +12,15 @@
     "@agent-fabric/fabric-contracts": "workspace:*",
     "@agent-fabric/persistence-mysql": "workspace:*",
     "@a2a-js/sdk": "1.0.1",
+    "better-auth": "1.6.29",
     "express": "5.1.0",
+    "mysql2": "3.23.3",
+    "nodemailer": "9.0.5",
+    "rate-limiter-flexible": "11.2.0",
     "undici": "7.29.0",
     "ws": "8.21.3"
   },
-  "devDependencies": { "@agent-fabric/client": "workspace:*", "@types/express": "5.0.3", "@types/ws": "8.18.1" },
+  "devDependencies": { "@agent-fabric/client": "workspace:*", "@types/express": "5.0.3", "@types/nodemailer": "8.0.1", "@types/ws": "8.18.1" },
   "scripts": { "start": "node dist/bin.js" },
   "bin": { "agent-fabric-server": "dist/bin.js" }
 }

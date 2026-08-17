@@ -13,6 +13,7 @@
 - 工作台权威 Key：`work:agent-fabric`
 - 工程工作区与命令：[Product Workspace Foundation](./docs/architecture/workspace-foundation.md)
 - 版本更新记录：[CHANGELOG.md](./CHANGELOG.md)
+- 认证与 SMTP 运维：[docs/architecture/authentication.md](./docs/architecture/authentication.md)
 
 ## 权威边界
 
@@ -39,6 +40,10 @@ openspec validate replace-account-members-with-friends --strict --no-interactive
 - 当前阶段不建设 AgentSpec、Revision、Deployment、发布或回滚产品体系。
 - MCP 只提供 `list_agents`、`find_agent`、`ask_agent`、`get_task`；不提供管理或权限扩张工具。
 - Multica 固定提交只作 clean-room 研究参考，不进入产品源码、依赖、资产、品牌或文案。
+
+## 登录能力
+
+Desktop 支持普通邮箱六位验证码和 Google 系统浏览器登录。两种方式由 Better Auth 统一验证，并按已验证邮箱绑定同一个 Human；App 最终只保存一次性交换得到的设备凭据。验证码、OAuth token、Better Auth session 与 SMTP 密码不会进入 Renderer snapshot 或日志。邮箱登录只会在 SMTP 启动健康检查通过后出现在服务能力中。
 
 ## Source-first Gate
 

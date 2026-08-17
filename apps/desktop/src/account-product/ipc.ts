@@ -119,7 +119,9 @@ export const accountProductRendererSnapshotSchema = z.strictObject({
 });
 
 export const accountProductRendererCommandSchema = z.discriminatedUnion("type", [
-  z.strictObject({ type: z.literal("login-start") }),
+  z.strictObject({ type: z.literal("login-google") }),
+  z.strictObject({ type: z.literal("login-email-request"), email: z.email().max(320) }),
+  z.strictObject({ type: z.literal("login-email-verify"), email: z.email().max(320), otp: z.string().regex(/^\d{6}$/u) }),
   z.strictObject({ type: z.literal("catalog-query"), query: agentCatalogQuerySchema }),
   z.strictObject({ type: z.literal("agent-open"), agentId: identifier, section: z.enum(["overview", "activity", "capabilities", "settings"]) }),
   z.strictObject({ type: z.literal("agent-update"), agentId: identifier, expectedVersion: z.number().int().positive(), update: agentUpdateSchema }),
@@ -153,6 +155,7 @@ export const ACCOUNT_PRODUCT_CHANGED_CHANNEL = "account-product:changed";
 
 export const accountProductRendererCommandResultSchema = z.discriminatedUnion("type", [
   z.strictObject({ type: z.literal("snapshot"), snapshot: accountProductRendererSnapshotSchema }),
+  z.strictObject({ type: z.literal("email-code-requested"), expiresAt: z.iso.datetime({ offset: true }), resendAfterSeconds: z.number().int().min(1).max(3600), snapshot: accountProductRendererSnapshotSchema }),
   z.strictObject({ type: z.literal("friend-invitation-created"), invitation: friendInvitationViewSchema, snapshot: accountProductRendererSnapshotSchema }),
 ]);
 

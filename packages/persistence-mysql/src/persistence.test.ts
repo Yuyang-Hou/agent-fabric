@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { accountAgentA2AMySqlMigrationStatements, accountAgentCreationV8MySqlMigrationStatements, accountAgentMySqlMigrationStatements, accountRuntimeDeletionV7MySqlMigrationStatements, accountSelfTestV10MySqlMigrationStatements, applyHumanFriendshipV11Migration, humanFriendshipV11MySqlMigrationStatements, initialMySqlMigrationStatements, legacyCreationStateRetirementV12MySqlMigrationStatements, legacyMigrationRecoveryV9MySqlMigrationStatements, onboardingMySqlMigrationStatements, personalAgentMySqlMigrationStatements, selfServiceMySqlMigrationStatements } from "./migration.js";
+import { accountAgentA2AMySqlMigrationStatements, accountAgentCreationV8MySqlMigrationStatements, accountAgentMySqlMigrationStatements, accountRuntimeDeletionV7MySqlMigrationStatements, accountSelfTestV10MySqlMigrationStatements, applyHumanFriendshipV11Migration, humanFriendshipV11MySqlMigrationStatements, initialMySqlMigrationStatements, legacyCreationStateRetirementV12MySqlMigrationStatements, legacyMigrationRecoveryV9MySqlMigrationStatements, onboardingMySqlMigrationStatements, personalAgentMySqlMigrationStatements, selfServiceMySqlMigrationStatements, unifiedAuthenticationV13MySqlMigrationStatements } from "./migration.js";
 import { hashCredential, MySqlStore } from "./store.js";
 
 describe("MySQL persistence boundary", () => {
@@ -12,8 +12,18 @@ describe("MySQL persistence boundary", () => {
 
   it("reports the retired creation-state schema as ready", async () => {
     const store = new MySqlStore("mysql://unused:unused@localhost/unused");
-    Object.defineProperty(store, "pool", { value: { query: async () => [[{ version: 12 }], []], end: async () => undefined } });
-    await expect(store.health()).resolves.toEqual({ database: "ready", schemaVersion: 12 });
+    Object.defineProperty(store, "pool", { value: { query: async () => [[{ version: 13 }], []], end: async () => undefined } });
+    await expect(store.health()).resolves.toEqual({ database: "ready", schemaVersion: 13 });
+  });
+
+  it("adds a fresh unified auth mapping, one-time device attempts and persistent abuse limits in v13", () => {
+    const sql = unifiedAuthenticationV13MySqlMigrationStatements.join("\n");
+    expect(sql).toContain("account_auth_identities");
+    expect(sql).toContain("account_device_login_attempts");
+    expect(sql).toContain("auth_security_events");
+    expect(sql).toContain("proof_digest varchar(64) UNIQUE");
+    for (const table of ["auth_rate_google_ip", "auth_rate_email_request_ip", "auth_rate_email_request_address", "auth_rate_email_verify_ip", "auth_rate_email_verify_address"]) expect(sql).toContain(table);
+    expect(sql).not.toMatch(/join_sessions|external_identities/iu);
   });
 
   it("contains every governance table and no raw content columns", () => {
@@ -23,17 +33,15 @@ describe("MySQL persistence boundary", () => {
     expect(migrationSql).not.toMatch(/\b(prompt|answer|artifact_body|capsule_body|runtime_session|absolute_path)\b/iu);
   });
 
-  it("stores only onboarding digests and bounded identity metadata", () => {
-    const onboardingSql = onboardingMySqlMigrationStatements.join("\n");
-    for (const table of ["external_identities", "invitations", "join_sessions"]) expect(onboardingSql).toContain(`TABLE IF NOT EXISTS ${table}`);
-    expect(onboardingSql).toContain("subject_digest varchar(64) NOT NULL");
-    expect(onboardingSql).not.toMatch(/\b(email|access_token|refresh_token|id_token|authorization_code|invitation_token|exchange_code|code_verifier)\b/iu);
+  it("does not create the retired hand-written OAuth schema on a fresh database", () => {
+    expect(onboardingMySqlMigrationStatements).toEqual([]);
+    expect([...selfServiceMySqlMigrationStatements, ...legacyMigrationRecoveryV9MySqlMigrationStatements].join("\n")).not.toMatch(/join_sessions|external_identities/iu);
   });
 
   it("binds self-service edge credentials without storing raw credentials", () => {
     const sql = selfServiceMySqlMigrationStatements.join("\n");
     expect(sql).toContain("resource_agent_id");
-    expect(sql).toContain("purpose");
+    expect(sql).not.toContain("join_sessions");
     expect(sql).not.toMatch(/\b(raw_token|google_token|code_verifier)\b/iu);
   });
 
@@ -207,98 +215,33 @@ describe("MySQL persistence boundary", () => {
     expect(hashCredential("secret-token")).not.toContain("secret-token");
   });
 
-  it("issues the desktop owner credential with management scope only", async () => {
+
+  it("redeems one unified auth proof into the stable Human and Account with Account-only scope", async () => {
     const store = new MySqlStore("mysql://unused:unused@localhost/unused");
     let issuedScopes = "";
-    let createdAccount = false;
-    const connection = {
-      beginTransaction: async () => undefined,
-      commit: async () => undefined,
-      rollback: async () => undefined,
-      release: () => undefined,
-      query: async () => [[{ instance_id: "instance:one" }], []],
-      execute: async (statement: string, values?: readonly unknown[]) => {
-        if (statement.includes("SELECT * FROM join_sessions")) return [[{
-          join_session_id: "login:one", consumed_at: null, authenticated_at: "2026-08-13T00:00:00.000Z",
-          code_challenge: "challenge", expires_at: "2026-08-14T00:00:00.000Z", identity_issuer: "https://accounts.google.com",
-          subject_digest: "subject", display_name: "Alice", identity_email: "alice@example.com", device_name: "Alice Mac", purpose: "owner",
-        }], []];
-        if (statement.includes("SELECT principal_id FROM external_identities")) return [[{ principal_id: "human:alice" }], []];
-        if (statement.includes("SELECT account_id, role, email FROM account_memberships")) return [[], []];
-        if (statement.includes("INSERT INTO accounts")) createdAccount = true;
-        if (statement.includes("INSERT INTO credentials")) issuedScopes = String(values?.[4]);
-        return [{ affectedRows: 1 }, []];
-      },
-    };
-    Object.defineProperty(store, "pool", { value: { getConnection: async () => connection, end: async () => undefined } });
-
-    await store.redeemOwnerLoginSession({ exchangeDigest: "exchange", codeChallenge: "challenge", audience: "https://fabric.example", credentialExpiresAt: "2026-11-10T00:00:00.000Z", now: "2026-08-13T01:00:00.000Z" });
-    expect(JSON.parse(issuedScopes)).toEqual(["account:access"]);
-    expect(createdAccount).toBe(true);
-  });
-
-  it("reuses the identity's single Account instead of creating another on later owner login", async () => {
-    const store = new MySqlStore("mysql://unused:unused@localhost/unused");
-    let createdAccount = false;
-    let updatedMembershipEmail: readonly unknown[] | undefined;
+    let consumed = false;
     const connection = {
       beginTransaction: async () => undefined, commit: async () => undefined, rollback: async () => undefined, release: () => undefined,
       query: async () => [[{ instance_id: "instance:one" }], []],
       execute: async (statement: string, values?: readonly unknown[]) => {
-        if (statement.includes("SELECT * FROM join_sessions")) return [[{
-          join_session_id: "login:two", consumed_at: null, authenticated_at: "2026-08-13T00:00:00.000Z", code_challenge: "challenge",
-          expires_at: "2026-08-14T00:00:00.000Z", identity_issuer: "https://accounts.google.com", subject_digest: "subject",
-          display_name: "Alice", identity_email: "alice@example.com", device_name: "Alice Mac", purpose: "owner",
+        if (statement.includes("SELECT * FROM account_device_login_attempts")) return [[{
+          attempt_id: "auth-attempt:one", method: "email", return_uri: "http://127.0.0.1:1/callback", client_state: "state",
+          code_challenge: "challenge", device_name: "Alice Mac", email_digest: hashCredential("alice@example.com"),
+          auth_user_id: "auth-user:alice", verified_email: "alice@example.com", display_name: "Alice", proof_digest: "proof",
+          expires_at: "2026-08-14T00:00:00.000Z", authenticated_at: "2026-08-13T00:00:00.000Z", consumed_at: null, created_at: "2026-08-13T00:00:00.000Z",
         }], []];
-        if (statement.includes("SELECT principal_id FROM external_identities")) return [[{ principal_id: "human:alice" }], []];
-        if (statement.includes("SELECT account_id, role, email FROM account_memberships")) return [[{ account_id: "account:existing", role: "owner", email: "migrated+owner@invalid.agent-fabric.local" }], []];
-        if (statement.includes("INSERT INTO accounts")) createdAccount = true;
-        if (statement.includes("UPDATE account_memberships SET email=")) updatedMembershipEmail = values;
+        if (statement.includes("SELECT * FROM account_auth_identities")) return [[{ auth_user_id: "auth-user:alice", principal_id: "human:alice", verified_email: "alice@example.com", verified_email_digest: hashCredential("alice@example.com") }], []];
+        if (statement.includes("SELECT account_id,role,email FROM account_memberships")) return [[{ account_id: "account:alice", role: "owner", email: "alice@example.com" }], []];
+        if (statement.includes("INSERT INTO credentials")) issuedScopes = String(values?.[4]);
+        if (statement.includes("UPDATE account_device_login_attempts SET consumed_at")) consumed = true;
         return [{ affectedRows: 1 }, []];
       },
     };
     Object.defineProperty(store, "pool", { value: { getConnection: async () => connection, end: async () => undefined } });
-
-    const result = await store.redeemOwnerLoginSession({ exchangeDigest: "exchange", codeChallenge: "challenge", audience: "https://fabric.example", credentialExpiresAt: "2026-11-10T00:00:00.000Z", now: "2026-08-13T01:00:00.000Z" });
-    expect(result).toMatchObject({ accountId: "account:existing", humanPrincipalId: "human:alice" });
-    expect(createdAccount).toBe(false);
-    expect(updatedMembershipEmail).toEqual(["alice@example.com", new Date("2026-08-13T01:00:00.000Z"), "account:existing", "human:alice"]);
-  });
-
-  it("accepts an Account invitation only for its exact OIDC email and issues Account-only scope", async () => {
-    const redemptionRow = {
-      join_session_id: "account-join:one", account_invitation_id: "account-invitation:one", consumed_at: null as string | null,
-      authenticated_at: "2026-08-13T00:00:00.000Z", code_challenge: "challenge", expires_at: "2026-08-14T00:00:00.000Z",
-      identity_issuer: "https://accounts.google.com", subject_digest: "subject:bob", display_name: "Bob", identity_email: "bob@example.com",
-      device_name: "Bob Mac", account_id: "account:one", invited_email: "bob@example.com", role: "member", invitation_status: "pending",
-      invitation_expires_at: "2026-09-01T00:00:00.000Z", invitation_accepted_at: null, invitation_revoked_at: null,
-    };
-    const createStore = (row: typeof redemptionRow) => {
-      const store = new MySqlStore("mysql://unused:unused@localhost/unused");
-      let issuedScopes = "";
-      const connection = {
-        beginTransaction: async () => undefined, commit: async () => undefined, rollback: async () => undefined, release: () => undefined,
-        query: async () => [[{ instance_id: "instance:one" }], []],
-        execute: async (statement: string, values?: readonly unknown[]) => {
-          if (statement.includes("JOIN account_member_invitations")) return [[row], []];
-          if (statement.includes("SELECT principal_id FROM external_identities")) return [[{ principal_id: "human:bob" }], []];
-          if (statement.includes("SELECT account_id,role,email FROM account_memberships")) return [[], []];
-          if (statement.includes("INSERT INTO credentials")) issuedScopes = String(values?.[4]);
-          return [{ affectedRows: 1 }, []];
-        },
-      };
-      Object.defineProperty(store, "pool", { value: { getConnection: async () => connection, end: async () => undefined } });
-      return { store, issuedScopes: () => issuedScopes };
-    };
-    const accepted = createStore(redemptionRow);
-    const result = await accepted.store.redeemAccountMemberLoginSession({ exchangeDigest: "exchange", codeChallenge: "challenge", audience: "https://fabric.example", credentialExpiresAt: "2026-11-10T00:00:00.000Z", now: "2026-08-13T01:00:00.000Z" });
-    expect(result).toMatchObject({ accountId: "account:one", role: "member", humanPrincipalId: "human:bob" });
-    expect(JSON.parse(accepted.issuedScopes())).toEqual(["account:access"]);
-
-    const rejected = createStore({ ...redemptionRow, identity_email: "mallory@example.com" });
-    await expect(rejected.store.redeemAccountMemberLoginSession({ exchangeDigest: "exchange", codeChallenge: "challenge", audience: "https://fabric.example", credentialExpiresAt: "2026-11-10T00:00:00.000Z", now: "2026-08-13T01:00:00.000Z" })).rejects.toThrow("account-join-exchange-denied");
-    const replayed = createStore({ ...redemptionRow, consumed_at: "2026-08-13T00:30:00.000Z" });
-    await expect(replayed.store.redeemAccountMemberLoginSession({ exchangeDigest: "exchange", codeChallenge: "challenge", audience: "https://fabric.example", credentialExpiresAt: "2026-11-10T00:00:00.000Z", now: "2026-08-13T01:00:00.000Z" })).rejects.toThrow("account-join-exchange-denied");
+    const result = await store.redeemAccountLoginAttempt({ proofDigest: "proof", codeChallenge: "challenge", audience: "https://fabric.example", credentialExpiresAt: "2026-11-10T00:00:00.000Z", now: "2026-08-13T01:00:00.000Z" });
+    expect(result).toMatchObject({ accountId: "account:alice", humanPrincipalId: "human:alice", displayName: "Alice" });
+    expect(JSON.parse(issuedScopes)).toEqual(["account:access"]);
+    expect(consumed).toBe(true);
   });
 
   it("recovers a persisted Account session after restart, rejects expiry, and revokes both session and credential", async () => {
