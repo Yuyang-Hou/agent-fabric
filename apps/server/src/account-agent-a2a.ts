@@ -151,7 +151,6 @@ class AccountAgentExecutor implements AgentExecutor {
       throw error;
     } finally {
       this.#active.delete(request.taskId);
-      bus.finished();
     }
   }
 

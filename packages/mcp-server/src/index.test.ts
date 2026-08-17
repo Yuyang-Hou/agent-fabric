@@ -27,7 +27,9 @@ describe("Account Agent MCP server", () => {
     expect(await server.handle({ jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "find_agent", arguments: { query: "Research" } } })).toMatchObject({ result: { structuredContent: { agent: { agentId: "agent:research" } } } });
     expect(await server.handle({ jsonrpc: "2.0", id: 3, method: "tools/call", params: { name: "ask_agent", arguments: { agent_id: "agent:research", question: "What changed?", wait_ms: 20, idempotency_key: "retry:one" } } })).toMatchObject({ result: { structuredContent: { task: { taskId: "task:one", text: "answer" } } } });
     expect(gateway.askAgent).toHaveBeenCalledWith("agent:research", "What changed?", 20, "retry:one");
-    await server.handle({ jsonrpc: "2.0", id: 4, method: "tools/call", params: { name: "get_task", arguments: { task_id: "task:one" } } });
+    await server.handle({ jsonrpc: "2.0", id: 4, method: "tools/call", params: { name: "ask_agent", arguments: { agent_id: "agent:research", question: "Wait safely", wait_ms: 60_000 } } });
+    expect(gateway.askAgent).toHaveBeenLastCalledWith("agent:research", "Wait safely", 30_000, undefined);
+    await server.handle({ jsonrpc: "2.0", id: 5, method: "tools/call", params: { name: "get_task", arguments: { task_id: "task:one" } } });
     expect(gateway.getTask).toHaveBeenCalledWith("task:one");
   });
 

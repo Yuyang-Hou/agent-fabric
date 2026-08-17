@@ -37,7 +37,9 @@ describe("Account Agent isolated self-test API", () => {
       const selfTestHeaders = { authorization: "Bearer self-test-secret" };
       const discovered = await fetch(`${server.address()}/v1/invokable-agents`, { headers: selfTestHeaders });
       expect(discovered.status).toBe(200);
-      expect(await discovered.json()).toEqual({ agents: [{ agentId: agent.agentId, name: "One", description: "Answers", availability: "online", accessScope: "owner" }] });
+      expect(await discovered.json()).toEqual({ agents: [{ agentId: agent.agentId, name: "One", description: "Answers", availability: "offline", accessScope: "owner" }] });
+      server.accountRuntimeTunnels.register(runtime.accountId, runtime.runtimeId, { readyState: 1, send: () => undefined, close: () => undefined });
+      expect(await fetch(`${server.address()}/v1/invokable-agents`, { headers: selfTestHeaders }).then((response) => response.json())).toEqual({ agents: [{ agentId: agent.agentId, name: "One", description: "Answers", availability: "online", accessScope: "owner" }] });
       const card = await fetch(`${server.address()}/v1/agents/agent%3Aone/card`, { headers: selfTestHeaders });
       expect(card.status).toBe(200);
       const route = await fetch(`${server.address()}/v1/a2a/tasks/task%3Aone/route`, { headers: selfTestHeaders });

@@ -26,8 +26,12 @@ The local MCP Server SHALL expose exactly `list_agents`, `find_agent`, `ask_agen
 - **WHEN** Friendship is removed or the owner changes the Agent between `friends` and `private`
 - **THEN** the next discovery call reflects current access without MCP reinstallation and emits no stale cached row
 
+#### Scenario: Persisted Runtime presence is stale
+- **WHEN** an Agent's persisted Runtime health is ready but its current Runtime transport is disconnected
+- **THEN** discovery reports the Agent offline instead of presenting stale online availability
+
 ### Requirement: ask_agent sends a standard A2A Message under current friendship authority
-`ask_agent` SHALL accept an exact accessible Agent ID and non-empty bounded text, resolve a current standard Agent Card, recheck owner-or-active-friend access, send a standard A2A Message through the shared A2A Client, and interpret only standard Task, TaskState and Artifact semantics.
+`ask_agent` SHALL accept an exact accessible Agent ID and non-empty bounded text, treat a positive integer wait above the service maximum as the service maximum, resolve a current standard Agent Card, recheck owner-or-active-friend access, send a standard A2A Message through the shared A2A Client, and interpret only standard Task, TaskState and Artifact semantics.
 
 #### Scenario: Friend Agent completes with text
 - **WHEN** the target belongs to an active friend, is opened to friends, is online and completes within the bounded wait with a non-empty `text/plain` Artifact
@@ -36,6 +40,14 @@ The local MCP Server SHALL expose exactly `list_agents`, `find_agent`, `ask_agen
 #### Scenario: Task remains non-terminal
 - **WHEN** the bounded wait expires while the Task is working or input-required
 - **THEN** MCP returns the Task ID and current standard state without converting it to success or failure
+
+#### Scenario: Requested wait exceeds the service maximum
+- **WHEN** a caller supplies a positive integer wait above the advertised service maximum
+- **THEN** MCP sends the Message once using the service maximum and does not require the caller to retry with a smaller value
+
+#### Scenario: Runtime fails after Task creation
+- **WHEN** a standard Task has been created and Runtime delivery or execution then fails
+- **THEN** MCP returns the Task ID with the latest standard state and an allowlisted failure code so `get_task` can continue from that Task
 
 #### Scenario: Target is offline or access is denied
 - **WHEN** the Agent is offline, archived, unbound, private or no longer owned by a current friend before delivery

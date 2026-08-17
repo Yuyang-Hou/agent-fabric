@@ -186,7 +186,7 @@ export function createAgentFabricServer(config: ServerConfig, options: {
       agentId: agent.agentId,
       name: agent.name,
       description: agent.description,
-      availability: !runtime ? "offline" : runtime.health === "ready" ? "online" : runtime.health === "checking" ? "unstable" : "offline",
+      availability: !runtime || !accountRuntimeTunnels.isConnected(agent.accountId, runtime.runtimeId) ? "offline" : runtime.health === "ready" ? "online" : runtime.health === "checking" ? "unstable" : "offline",
       accessScope,
     })) });
   }));

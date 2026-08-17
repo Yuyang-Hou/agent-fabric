@@ -98,6 +98,10 @@ describe("Account Agent standard A2A", () => {
       terminal = "failed";
       const failed = await client.askAccountAgent({ agentId: agent.agentId, text: "fail", waitMs: 1_000 });
       expect(failed).toMatchObject({ state: "failed", errorCode: "agent-task-failed" });
+      execution.execute.mockRejectedValueOnce(new Error("agent-runtime-offline"));
+      const unavailable = await client.askAccountAgent({ agentId: agent.agentId, text: "runtime unavailable after task creation", waitMs: 1_000 });
+      expect(unavailable).toMatchObject({ taskId: expect.any(String), state: "failed", errorCode: "agent-task-failed" });
+      await expect(client.getAccountAgentTask(unavailable.taskId)).resolves.toMatchObject({ taskId: unavailable.taskId, state: "failed" });
       await vi.waitUntil(() => invalidations.some((value) => value.includes('"activity"')));
       expect(invalidations.map((value) => JSON.parse(value))).toEqual(expect.arrayContaining([expect.objectContaining({ accountId: "account:one", resourceId: "agent:research", aspects: expect.arrayContaining(["workload", "activity"]) })]));
 

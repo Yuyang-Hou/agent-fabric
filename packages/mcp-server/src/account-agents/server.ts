@@ -32,7 +32,7 @@ export const MCP_TOOLS = Object.freeze([
   tool("ask_agent", "通过标准 A2A 向一个当前可访问且在线的 Agent 提问；超时返回 Task ID，之后用 get_task 继续读取。", objectSchema({
     agent_id: identifierSchema("list_agents/find_agent 返回的 Agent ID"),
     question: { type: "string", description: "要询问的纯文本问题", minLength: 1, maxLength: 16_000 },
-    wait_ms: { type: "integer", description: "等待终态的毫秒数", minimum: 1, maximum: 30_000, default: 30_000 },
+    wait_ms: { type: "integer", description: "等待终态的毫秒数；超过 30000 时按 30000 处理", minimum: 1, default: 30_000 },
     idempotency_key: { type: "string", description: "可选重试幂等键", minLength: 8, maxLength: 160, pattern: "^[A-Za-z0-9._:-]+$" },
   }, ["agent_id", "question"])),
   tool("get_task", "读取由当前 Principal 发起、且目标 Agent 仍可访问的一条 A2A Task 的最新标准状态与有界结果。", objectSchema({
@@ -119,7 +119,7 @@ function strictObject(value: unknown, allowed: readonly string[]): Record<string
 function toolCallParams(value: unknown): Record<string, unknown> { const params = strictObject(value, ["name", "arguments", "_meta"]); if (params._meta !== undefined && (!params._meta || typeof params._meta !== "object" || Array.isArray(params._meta))) throw new Error("protocol-meta-invalid"); return params; }
 function requiredString(value: unknown, code: string, maximum: number): string { if (typeof value !== "string" || !value.trim() || value.length > maximum) throw new Error(code); return value.trim(); }
 function optionalString(value: unknown, maximum: number): string | undefined { return value === undefined ? undefined : requiredString(value, "string-invalid", maximum); }
-function optionalInteger(value: unknown, fallback: number, minimum: number, maximum: number): number { if (value === undefined) return fallback; if (!Number.isInteger(value) || (value as number) < minimum || (value as number) > maximum) throw new Error("wait-ms-invalid"); return value as number; }
+function optionalInteger(value: unknown, fallback: number, minimum: number, maximum: number): number { if (value === undefined) return fallback; if (!Number.isInteger(value) || (value as number) < minimum) throw new Error("wait-ms-invalid"); return Math.min(value as number, maximum); }
 function success(id: unknown, result: unknown) { return { jsonrpc: "2.0", id: id ?? null, result }; }
 function errorResponse(id: unknown, code: number, message: string) { return { jsonrpc: "2.0", id, error: { code, message } }; }
 

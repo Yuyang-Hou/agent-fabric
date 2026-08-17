@@ -48,6 +48,7 @@
 - [x] 6.4 Update Edge/Runtime source isolation so external friend input is untrusted and Runtime Sessions cannot cross source Human or target Agent boundaries.
 - [x] 6.5 Preserve exactly `list_agents`, `find_agent`, `ask_agent`, `get_task`; update descriptions/access labels without exposing Friendship management to MCP.
 - [x] 6.6 Add contract tests for friend discovery, real/fake A2A completion, offline target, timeout, revoked Friendship, private toggle, guessed Task and sensitive-output redaction.
+- [x] 6.7 Clamp oversized positive `ask_agent` waits, preserve the Task ID after post-creation failures and derive MCP online availability from the live Runtime transport; add focused regressions.
 
 ## 7. Rebuild Desktop Friends and friend Agent experience
 
